@@ -14,8 +14,8 @@ ApplicationWindow {
 
     ColumnLayout {
         anchors.fill: parent
+        anchors.margins: 12
         spacing: 12
-        padding: 12
 
         Label {
             text: "Mix A"
