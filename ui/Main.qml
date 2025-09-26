@@ -24,6 +24,7 @@ ApplicationWindow {
             if (joinSwitch.checked !== data.joined) {
                 joinSwitch.syncing = true
                 joinSwitch.checked = data.joined
+                Qt.callLater(function() { joinSwitch.syncing = false })
             }
 
             if (Math.abs(volumeSlider.value - data.volume) > 0.0005) {
