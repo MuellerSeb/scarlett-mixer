@@ -21,9 +21,6 @@ def build_api(backend, static_dir: Optional[Path] = None) -> FastAPI:
         mix: str
         joined: bool
 
-    assets = static_dir or Path(__file__).resolve().parent / "web"
-    app.mount("/", StaticFiles(directory=str(assets), html=True), name="web")
-
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket):
         await ws.accept()
@@ -64,5 +61,8 @@ def build_api(backend, static_dir: Optional[Path] = None) -> FastAPI:
             pass
         finally:
             backend.bus.unsubscribe(push)
+
+    assets = static_dir or Path(__file__).resolve().parent / "web"
+    app.mount("/", StaticFiles(directory=str(assets), html=True), name="web")
 
     return app
