@@ -1,9 +1,12 @@
+from pathlib import Path
+from typing import Optional
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 
-def build_api(backend) -> FastAPI:
+def build_api(backend, static_dir: Optional[Path] = None) -> FastAPI:
     app = FastAPI()
 
     class SetGain(BaseModel):
@@ -18,7 +21,8 @@ def build_api(backend) -> FastAPI:
         mix: str
         joined: bool
 
-    app.mount("/", StaticFiles(directory="web", html=True), name="web")
+    assets = static_dir or Path(__file__).resolve().parent / "web"
+    app.mount("/", StaticFiles(directory=str(assets), html=True), name="web")
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket):

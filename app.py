@@ -1,5 +1,6 @@
 import asyncio
 import signal
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Slot
 from PySide6.QtGui import QGuiApplication
@@ -42,15 +43,17 @@ class MixBridge(QObject):
 
 
 async def _amain():
+    base_dir = Path(__file__).resolve().parent
+
     qt_app = QGuiApplication([])
     engine = QQmlApplicationEngine()
 
     backend = Backend()
-    api = build_api(backend)
+    api = build_api(backend, base_dir / "web")
 
     bridge = MixBridge(backend)
     engine.rootContext().setContextProperty("bridge", bridge)
-    engine.load("ui/Main.qml")
+    engine.load(str(base_dir / "ui" / "Main.qml"))
     if not engine.rootObjects():
         raise RuntimeError("Failed to load QML UI")
 
