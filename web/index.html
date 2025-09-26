@@ -27,8 +27,6 @@
           <div>Pan</div>
           <input id="pan" type="range" min="-1" max="1" step="0.01" value="0" />
         </div>
-        <div class="meter"><div id="ml" class="bar" style="height:20%"></div></div>
-        <div class="meter"><div id="mr" class="bar" style="height:25%"></div></div>
       </div>
       <div class="row" id="splitRow" style="display:none">
         <div style="flex:1">
@@ -39,6 +37,10 @@
           <div>Right</div>
           <input id="r" type="range" min="0" max="1" step="0.01" value="0.5" />
         </div>
+      </div>
+      <div class="row" id="meterRow">
+        <div class="meter"><div id="ml" class="bar" style="height:20%"></div></div>
+        <div class="meter"><div id="mr" class="bar" style="height:25%"></div></div>
       </div>
       <div id="status" style="margin-top:8px; opacity:.7">connecting…</div>
     </div>

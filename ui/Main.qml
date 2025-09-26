@@ -21,20 +21,30 @@ ApplicationWindow {
             if (name !== "A")
                 return
 
-            joinSwitch.syncing = true
-            joinSwitch.checked = data.joined
+            if (joinSwitch.checked !== data.joined) {
+                joinSwitch.syncing = true
+                joinSwitch.checked = data.joined
+            }
 
-            volumeSlider.syncing = true
-            volumeSlider.value = data.volume
+            if (Math.abs(volumeSlider.value - data.volume) > 0.0005) {
+                volumeSlider.syncing = true
+                volumeSlider.value = data.volume
+            }
 
-            panDial.syncing = true
-            panDial.value = data.pan
+            if (Math.abs(panDial.value - data.pan) > 0.0005) {
+                panDial.syncing = true
+                panDial.value = data.pan
+            }
 
-            leftSlider.syncing = true
-            leftSlider.value = data.gain_l
+            if (Math.abs(leftSlider.value - data.gain_l) > 0.0005) {
+                leftSlider.syncing = true
+                leftSlider.value = data.gain_l
+            }
 
-            rightSlider.syncing = true
-            rightSlider.value = data.gain_r
+            if (Math.abs(rightSlider.value - data.gain_r) > 0.0005) {
+                rightSlider.syncing = true
+                rightSlider.value = data.gain_r
+            }
 
             root.mixALevelL = data.level_l || 0
             root.mixALevelR = data.level_r || 0
