@@ -1,5 +1,6 @@
 import asyncio
 import signal
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Slot
@@ -42,10 +43,7 @@ class MixBridge(QObject):
         asyncio.create_task(self._backend.set_lr(mix, l, r))
 
 
-async def _amain():
-    base_dir = Path(__file__).resolve().parent
-
-    qt_app = QGuiApplication([])
+async def _amain(base_dir: Path):
     engine = QQmlApplicationEngine()
 
     backend = Backend()
@@ -57,21 +55,38 @@ async def _amain():
     if not engine.rootObjects():
         raise RuntimeError("Failed to load QML UI")
 
-    asyncio.create_task(backend.meters_task())
-    asyncio.create_task(_run_uvicorn(api))
+    meter_task = asyncio.create_task(backend.meters_task())
+    server_task = asyncio.create_task(_run_uvicorn(api))
 
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
 
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
+        try:
+            loop.add_signal_handler(sig, stop.set)
+        except NotImplementedError:
+            # Signal handlers are not available on some platforms (e.g. Windows)
+            pass
 
     await stop.wait()
     await backend.shutdown()
 
+    for task in (meter_task, server_task):
+        task.cancel()
+
+    await asyncio.gather(meter_task, server_task, return_exceptions=True)
+
 
 def main_entry():
-    qasync.run(_amain())
+    base_dir = Path(__file__).resolve().parent
+    qt_app = QGuiApplication(sys.argv)
+    loop = qasync.QEventLoop(qt_app)
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_amain(base_dir))
+    finally:
+        loop.close()
+        qt_app.quit()
 
 
 if __name__ == "__main__":
