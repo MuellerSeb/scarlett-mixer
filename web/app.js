@@ -24,7 +24,7 @@ let lastMeter = 0;
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
   if (msg.type === 'snapshot') {
-    const mix = msg.mixes['B'];
+    const mix = msg.mixes['A'];
     if (!mix) return;
 
     join.checked = mix.joined;
@@ -50,10 +50,10 @@ ws.onmessage = (event) => {
 };
 
 join.addEventListener('change', () => {
-  send('set_join', { mix: 'B', joined: join.checked });
+  send('set_join', { mix: 'A', joined: join.checked });
 });
 
-vol.addEventListener('input', () => send('set_gain', { mix: 'B', value: parseFloat(vol.value) }));
-pan.addEventListener('input', () => send('set_pan', { mix: 'B', value: parseFloat(pan.value) }));
-l.addEventListener('input', () => send('set_lr', { mix: 'B', l: parseFloat(l.value) }));
-r.addEventListener('input', () => send('set_lr', { mix: 'B', r: parseFloat(r.value) }));
+vol.addEventListener('input', () => send('set_gain', { mix: 'A', value: parseFloat(vol.value) }));
+pan.addEventListener('input', () => send('set_pan', { mix: 'A', value: parseFloat(pan.value) }));
+l.addEventListener('input', () => send('set_lr', { mix: 'A', l: parseFloat(l.value) }));
+r.addEventListener('input', () => send('set_lr', { mix: 'A', r: parseFloat(r.value) }));

@@ -17,7 +17,7 @@ python app.py
 ```
 
 * Desktop UI appears.
-* Phone: connect to `http://<your-linux-ip>:8088/` (same LAN). You’ll see **Mix B** controls + meters.
+* Phone: connect to `http://<your-linux-ip>:8088/` (same LAN). You’ll see **Mix A** controls that stay in sync with the desktop UI.
 
 ## Next steps
 

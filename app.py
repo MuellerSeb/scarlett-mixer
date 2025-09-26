@@ -1,9 +1,10 @@
 import asyncio
 import signal
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 import qasync
@@ -20,9 +21,12 @@ async def _run_uvicorn(app, host: str = "0.0.0.0", port: int = 8088):
 
 
 class MixBridge(QObject):
+    mixSnapshot = Signal(str, dict)
+
     def __init__(self, backend: Backend):
         super().__init__()
         self._backend = backend
+        self._backend.bus.subscribe(self._handle_bus)
 
     @Slot(str, bool)
     def setJoin(self, mix: str, joined: bool):
@@ -42,6 +46,24 @@ class MixBridge(QObject):
         r = None if right < 0 else right
         asyncio.create_task(self._backend.set_lr(mix, l, r))
 
+    @Slot(str, float)
+    def setLeft(self, mix: str, value: float):
+        asyncio.create_task(self._backend.set_lr(mix, value, None))
+
+    @Slot(str, float)
+    def setRight(self, mix: str, value: float):
+        asyncio.create_task(self._backend.set_lr(mix, None, value))
+
+    async def _handle_bus(self, msg: dict):
+        if msg.get("type") != "snapshot":
+            return
+        for name, payload in msg["mixes"].items():
+            self.mixSnapshot.emit(name, payload)
+
+    def push_initial_snapshot(self):
+        for name, mix in self._backend.state.mixes.items():
+            self.mixSnapshot.emit(name, asdict(mix))
+
 
 async def _amain(base_dir: Path):
     engine = QQmlApplicationEngine()
@@ -54,6 +76,8 @@ async def _amain(base_dir: Path):
     engine.load(str(base_dir / "ui" / "Main.qml"))
     if not engine.rootObjects():
         raise RuntimeError("Failed to load QML UI")
+
+    bridge.push_initial_snapshot()
 
     meter_task = asyncio.create_task(backend.meters_task())
     server_task = asyncio.create_task(_run_uvicorn(api))

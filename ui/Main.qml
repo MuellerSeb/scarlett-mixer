@@ -10,7 +10,36 @@ ApplicationWindow {
     visible: true
     title: "Scarlett Mixer (Prototype)"
 
+    property real mixALevelL: 0.0
+    property real mixALevelR: 0.0
+
     Material.theme: Material.Dark
+
+    Connections {
+        target: bridge
+        function onMixSnapshot(name, data) {
+            if (name !== "A")
+                return
+
+            joinSwitch.syncing = true
+            joinSwitch.checked = data.joined
+
+            volumeSlider.syncing = true
+            volumeSlider.value = data.volume
+
+            panDial.syncing = true
+            panDial.value = data.pan
+
+            leftSlider.syncing = true
+            leftSlider.value = data.gain_l
+
+            rightSlider.syncing = true
+            rightSlider.value = data.gain_r
+
+            root.mixALevelL = data.level_l || 0
+            root.mixALevelR = data.level_r || 0
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -29,7 +58,14 @@ ApplicationWindow {
                 id: joinSwitch
                 text: "Join L/R"
                 checked: true
-                onToggled: bridge.setJoin("A", checked)
+                property bool syncing: false
+                onToggled: {
+                    if (syncing) {
+                        syncing = false
+                        return
+                    }
+                    bridge.setJoin("A", checked)
+                }
             }
 
             ColumnLayout {
@@ -43,7 +79,14 @@ ApplicationWindow {
                     to: 1
                     value: 0.75
                     stepSize: 0.01
-                    onMoved: bridge.setVolume("A", value)
+                    property bool syncing: false
+                    onValueChanged: {
+                        if (syncing) {
+                            syncing = false
+                            return
+                        }
+                        bridge.setVolume("A", value)
+                    }
                 }
             }
 
@@ -58,7 +101,14 @@ ApplicationWindow {
                     to: 1
                     value: 0
                     stepSize: 0.01
-                    onMoved: bridge.setPan("A", value)
+                    property bool syncing: false
+                    onValueChanged: {
+                        if (syncing) {
+                            syncing = false
+                            return
+                        }
+                        bridge.setPan("A", value)
+                    }
                 }
             }
 
@@ -73,7 +123,14 @@ ApplicationWindow {
                     to: 1
                     value: 0.75
                     stepSize: 0.01
-                    onMoved: bridge.setLR("A", value, -1)
+                    property bool syncing: false
+                    onValueChanged: {
+                        if (syncing) {
+                            syncing = false
+                            return
+                        }
+                        bridge.setLeft("A", value)
+                    }
                 }
             }
 
@@ -88,40 +145,73 @@ ApplicationWindow {
                     to: 1
                     value: 0.75
                     stepSize: 0.01
-                    onMoved: bridge.setLR("A", -1, value)
+                    property bool syncing: false
+                    onValueChanged: {
+                        if (syncing) {
+                            syncing = false
+                            return
+                        }
+                        bridge.setRight("A", value)
+                    }
                 }
             }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            height: 100
+            height: 140
             radius: 8
+            color: "#202020"
             border.width: 1
-            opacity: 0.9
 
             RowLayout {
                 anchors.fill: parent
-                spacing: 8
+                anchors.margins: 16
+                spacing: 24
 
-                Repeater {
-                    model: 10
+                ColumnLayout {
+                    Layout.fillHeight: true
+                    spacing: 8
+
+                    Label { text: "Left" }
 
                     Rectangle {
                         Layout.fillHeight: true
-                        width: 14
-                        color: "#202020"
-                        radius: 4
+                        width: 26
+                        radius: 6
+                        color: "#101010"
                         border.width: 1
-
-                        property real level: Math.abs(Math.sin((Date.now() / 1000 + index) * 0.7))
 
                         Rectangle {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            height: parent.height * parent.level
-                            color: level > 0.8 ? "#ff4d4d" : level > 0.6 ? "#ffaa00" : "#55ff55"
+                            height: parent.height * root.mixALevelL
+                            color: root.mixALevelL > 0.8 ? "#ff4d4d" : root.mixALevelL > 0.6 ? "#ffaa00" : "#55ff55"
+                            radius: 4
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillHeight: true
+                    spacing: 8
+
+                    Label { text: "Right" }
+
+                    Rectangle {
+                        Layout.fillHeight: true
+                        width: 26
+                        radius: 6
+                        color: "#101010"
+                        border.width: 1
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: parent.height * root.mixALevelR
+                            color: root.mixALevelR > 0.8 ? "#ff4d4d" : root.mixALevelR > 0.6 ? "#ffaa00" : "#55ff55"
                             radius: 4
                         }
                     }
@@ -135,7 +225,7 @@ ApplicationWindow {
         }
 
         Label {
-            text: "(Web UI can control Mix B in this prototype)"
+            text: "(Web UI can control Mix A in this prototype)"
             opacity: 0.7
         }
 
