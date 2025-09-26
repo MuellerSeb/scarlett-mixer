@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scarlett-mixer"
+version = "0.1.0"
+description = "Qt/QML mixer with web remote (prototype)"
+requires-python = ">=3.10"
+dependencies = [
+  "PySide6>=6.7",
+  "qasync>=0.27.1",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  "websockets>=12",
+]
+
+[tool.setuptools]
+py-modules = ["app", "backend", "server"]
+
+[tool.setuptools.package-data]
+"*" = [
+  "ui/*.qml",
+  "web/*",
+]
+
+[project.scripts]
+scarlett-mixer = "app:main_entry"
