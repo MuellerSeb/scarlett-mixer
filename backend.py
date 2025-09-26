@@ -114,8 +114,8 @@ class Backend:
             for mix in self.state.mixes.values():
                 base = 0.2 + 0.2 * (math.sin(t * 1.3) + 1) / 2
                 wiggle = 0.1 * (math.sin(t * 7.1) + 1) / 2
-                left_source = mix.gain_l if mix.joined else mix.gain_l or mix.volume
-                right_source = mix.gain_r if mix.joined else mix.gain_r or mix.volume
+                left_source = mix.gain_l
+                right_source = mix.gain_r
                 mix.level_l = max(0.0, min(1.0, left_source * (base + wiggle)))
                 mix.level_r = max(0.0, min(1.0, right_source * (base + wiggle * 0.8)))
             await self._broadcast_state()
