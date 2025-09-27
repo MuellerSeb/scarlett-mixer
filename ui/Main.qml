@@ -84,7 +84,7 @@ ApplicationWindow {
 
     function isPairLinked(left, right) {
         var leftMix = mixData[left]
-        return leftMix && leftMix.stereo_pair === right
+        return !!(leftMix && leftMix.stereo_pair === right)
     }
 
     Connections {
@@ -111,7 +111,7 @@ ApplicationWindow {
 
             TabBar {
                 id: mixTabBar
-                Layout.preferredWidth: Math.min(640, implicitWidth)
+                Layout.preferredWidth: Math.min(root.width * 0.75, implicitWidth)
                 currentIndex: Math.max(0, root.indexOfMix(root.currentMixName))
                 onCurrentIndexChanged: {
                     if (currentIndex >= 0 && currentIndex < root.mixTabs.length)
@@ -122,9 +122,63 @@ ApplicationWindow {
                     model: root.mixTabs
                     TabButton {
                         text: modelData.label
+                        leftPadding: 20
+                        rightPadding: 20
+                        implicitWidth: Math.max(150, contentItem.implicitWidth + leftPadding + rightPadding)
                         checkable: true
                         checked: index === mixTabBar.currentIndex
                         onClicked: mixTabBar.currentIndex = index
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            radius: 12
+            color: "#1f1f1f"
+            border.color: "#3a3a3a"
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 10
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        text: "Stereo Mix Links"
+                        font.pixelSize: 18
+                        Layout.fillWidth: true
+                    }
+
+                    Label {
+                        text: "Link neighbouring mixes to create stereo tabs"
+                        font.pixelSize: 12
+                        opacity: 0.65
+                    }
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Repeater {
+                        model: root.stereoPairs
+                        delegate: Button {
+                            text: modelData.label
+                            width: 120
+                            highlighted: root.isPairLinked(modelData.left, modelData.right)
+                            enabled: Boolean(root.mixData[modelData.left]) && Boolean(root.mixData[modelData.right])
+                            onClicked: {
+                                if (root.isPairLinked(modelData.left, modelData.right)) {
+                                    bridge.setStereoPair(modelData.left, "")
+                                } else {
+                                    bridge.setStereoPair(modelData.left, modelData.right)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -162,244 +216,243 @@ ApplicationWindow {
     }
 
     Component {
-        id: channelStripComponent
-        ColumnLayout {
-            id: channelStrip
-            width: 110
-            implicitWidth: 110
-            implicitHeight: 420
-            spacing: 8
-
-            property string mixName: ""
-            property int channelIndex: -1
-            property var channelData: null
-            property bool showPan: false
-
-            function sync() {
-                if (!channelData)
-                    return
-                if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
-                    channelVolumeSlider.syncing = true
-                    channelVolumeSlider.value = channelData.volume
-                }
-                var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
-                if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
-                    channelPanDial.syncing = true
-                    channelPanDial.value = panTarget
-                } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
-                    channelPanDial.syncing = true
-                    channelPanDial.value = 0
-                }
-                if (muteButton.checked !== channelData.mute) {
-                    muteButton.syncing = true
-                    muteButton.checked = channelData.mute
-                }
-                if (soloButton.checked !== channelData.solo) {
-                    soloButton.syncing = true
-                    soloButton.checked = channelData.solo
-                }
-            }
-
-            onChannelDataChanged: sync()
-            onShowPanChanged: sync()
-            Component.onCompleted: sync()
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: 14
-                color: "#1e1e1e"
-                border.color: "#323232"
-                border.width: 1
-
-                ColumnLayout {
-                    id: channelBody
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 10
-
-                    Label {
-                        text: channelData ? channelData.name : ""
-                        font.pixelSize: 12
-                        horizontalAlignment: Text.AlignHCenter
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        maximumLineCount: 2
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: "#2c2c2c"
-                        opacity: 0.6
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 10
-
-                        Rectangle {
-                            Layout.preferredWidth: 18
-                            Layout.fillHeight: true
-                            radius: 7
-                            color: "#101010"
-                            border.color: "#272727"
-                            border.width: 1
-
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: parent.height * (channelData ? channelData.level : 0)
-                                radius: 4
-                                color: channelData && channelData.level > 0.8 ? "#ff4d4d"
-                                       : channelData && channelData.level > 0.6 ? "#ffaa00"
-                                       : "#55ff55"
-                            }
-                        }
-
-                        Slider {
-                            id: channelVolumeSlider
-                            Layout.fillHeight: true
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 36
-                            orientation: Qt.Vertical
-                            from: 0
-                            to: 1
-                            stepSize: 0.01
-                            value: 0.75
-                            property bool syncing: false
-
-                            onValueChanged: {
-                                if (syncing) {
-                                    syncing = false
-                                    return
-                                }
-                                bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
-                            }
-                        }
-                    }
-
-                    ColumnLayout {
-                        visible: channelStrip.showPan
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Dial {
-                            id: channelPanDial
-                            from: -1
-                            to: 1
-                            stepSize: 0.01
-                            value: 0
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredWidth: 68
-                            Layout.preferredHeight: 68
-                            visible: channelStrip.showPan
-                            enabled: channelStrip.showPan
-                            property bool syncing: false
-                            onValueChanged: {
-                                if (syncing) {
-                                    syncing = false
-                                    return
-                                }
-                                if (channelStrip.showPan)
-                                    bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
-                            }
-                        }
-
-                        Label {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            font.pixelSize: 11
-                            opacity: 0.75
-                            text: channelStrip.showPan && channelData ? channelStrip.formatPan(channelData.pan) : "Pan Center"
-                        }
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: channelStrip.showPan ? 4 : 0
-                    }
-
-                    RowLayout {
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: 6
-
-                        Button {
-                            id: muteButton
-                            text: "M"
-                            checkable: true
-                            font.pixelSize: 12
-                            width: 42
-                            height: 28
-                            checked: false
-                            property bool syncing: false
-                            onToggled: {
-                                if (syncing) {
-                                    syncing = false
-                                    return
-                                }
-                                bridge.setChannelMute(channelStrip.mixName, channelStrip.channelIndex, checked)
-                            }
-                        }
-
-                        Button {
-                            id: soloButton
-                            text: "S"
-                            checkable: true
-                            font.pixelSize: 12
-                            width: 42
-                            height: 28
-                            checked: false
-                            property bool syncing: false
-                            onToggled: {
-                                if (syncing) {
-                                    syncing = false
-                                    return
-                                }
-                                bridge.setChannelSolo(channelStrip.mixName, channelStrip.channelIndex, checked)
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 4
-                        radius: 2
-                        color: "#303030"
-                    }
-
-                    Label {
-                        text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
-                        horizontalAlignment: Text.AlignHCenter
-                        Layout.fillWidth: true
-                        font.pixelSize: 11
-                        opacity: 0.7
-                    }
-                }
-            }
-
-            function formatPan(value) {
-                if (value > 0.01)
-                    return "Pan R " + Math.round(value * 100) / 100
-                if (value < -0.01)
-                    return "Pan L " + Math.round(Math.abs(value) * 100) / 100
-                return "Pan Center"
-            }
-        }
-    }
-
-
-    Component {
         id: mixPageComponent
         Item {
             id: mixPage
             anchors.fill: parent
             property string mixName
             property string stereoPartner: ""
-            property var mixState: root.mixData[mixName] || null
-            property bool isStereo: !!(mixState && mixState.stereo_pair)
+            readonly property var mixState: root.mixData[mixName] || null
+            readonly property bool isStereo: !!(mixState && mixState.stereo_pair)
+
+            Component {
+                id: channelStripComponent
+                ColumnLayout {
+                    id: channelStrip
+                    width: 110
+                    implicitWidth: 110
+                    implicitHeight: 420
+                    spacing: 8
+
+                    property string mixName: mixPage.mixName
+                    property int channelIndex: index
+                    property var channelData: modelData
+                    property bool showPan: mixPage.isStereo
+
+                    function sync() {
+                        if (!channelData)
+                            return
+                        if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
+                            channelVolumeSlider.syncing = true
+                            channelVolumeSlider.value = channelData.volume
+                        }
+                        var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
+                        if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
+                            channelPanDial.syncing = true
+                            channelPanDial.value = panTarget
+                        } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
+                            channelPanDial.syncing = true
+                            channelPanDial.value = 0
+                        }
+                        if (muteButton.checked !== channelData.mute) {
+                            muteButton.syncing = true
+                            muteButton.checked = channelData.mute
+                        }
+                        if (soloButton.checked !== channelData.solo) {
+                            soloButton.syncing = true
+                            soloButton.checked = channelData.solo
+                        }
+                    }
+
+                    onChannelDataChanged: sync()
+                    onShowPanChanged: sync()
+                    Component.onCompleted: sync()
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: 14
+                        color: "#1e1e1e"
+                        border.color: "#323232"
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: channelBody
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 10
+
+                            Label {
+                                text: channelData ? channelData.name : ""
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: "#2c2c2c"
+                                opacity: 0.6
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.preferredWidth: 18
+                                    Layout.fillHeight: true
+                                    radius: 7
+                                    color: "#101010"
+                                    border.color: "#272727"
+                                    border.width: 1
+
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.bottom: parent.bottom
+                                        height: parent.height * (channelData ? channelData.level : 0)
+                                        radius: 4
+                                        color: channelData && channelData.level > 0.8 ? "#ff4d4d"
+                                               : channelData && channelData.level > 0.6 ? "#ffaa00"
+                                               : "#55ff55"
+                                    }
+                                }
+
+                                Slider {
+                                    id: channelVolumeSlider
+                                    Layout.fillHeight: true
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 36
+                                    orientation: Qt.Vertical
+                                    from: 0
+                                    to: 1
+                                    stepSize: 0.01
+                                    value: 0.75
+                                    property bool syncing: false
+
+                                    onValueChanged: {
+                                        if (syncing) {
+                                            syncing = false
+                                            return
+                                        }
+                                        bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                    }
+                                }
+                            }
+
+                            ColumnLayout {
+                                visible: channelStrip.showPan
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Dial {
+                                    id: channelPanDial
+                                    from: -1
+                                    to: 1
+                                    stepSize: 0.01
+                                    value: 0
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.preferredWidth: 68
+                                    Layout.preferredHeight: 68
+                                    visible: channelStrip.showPan
+                                    enabled: channelStrip.showPan
+                                    property bool syncing: false
+                                    onValueChanged: {
+                                        if (syncing) {
+                                            syncing = false
+                                            return
+                                        }
+                                        if (channelStrip.showPan)
+                                            bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
+                                    }
+                                }
+
+                                Label {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    font.pixelSize: 11
+                                    opacity: 0.75
+                                    text: channelStrip.showPan && channelData ? channelStrip.formatPan(channelData.pan) : "Pan Center"
+                                }
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: channelStrip.showPan ? 4 : 0
+                            }
+
+                            RowLayout {
+                                Layout.alignment: Qt.AlignHCenter
+                                spacing: 6
+
+                                Button {
+                                    id: muteButton
+                                    text: "M"
+                                    checkable: true
+                                    font.pixelSize: 12
+                                    width: 42
+                                    height: 28
+                                    checked: false
+                                    property bool syncing: false
+                                    onToggled: {
+                                        if (syncing) {
+                                            syncing = false
+                                            return
+                                        }
+                                        bridge.setChannelMute(channelStrip.mixName, channelStrip.channelIndex, checked)
+                                    }
+                                }
+
+                                Button {
+                                    id: soloButton
+                                    text: "S"
+                                    checkable: true
+                                    font.pixelSize: 12
+                                    width: 42
+                                    height: 28
+                                    checked: false
+                                    property bool syncing: false
+                                    onToggled: {
+                                        if (syncing) {
+                                            syncing = false
+                                            return
+                                        }
+                                        bridge.setChannelSolo(channelStrip.mixName, channelStrip.channelIndex, checked)
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 4
+                                radius: 2
+                                color: "#303030"
+                            }
+
+                            Label {
+                                text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
+                                horizontalAlignment: Text.AlignHCenter
+                                Layout.fillWidth: true
+                                font.pixelSize: 11
+                                opacity: 0.7
+                            }
+                        }
+                    }
+
+                    function formatPan(value) {
+                        if (value > 0.01)
+                            return "Pan R " + Math.round(value * 100) / 100
+                        if (value < -0.01)
+                            return "Pan L " + Math.round(Math.abs(value) * 100) / 100
+                        return "Pan Center"
+                    }
+                }
+            }
 
             function syncControls() {
                 var state = mixState
@@ -422,12 +475,6 @@ ApplicationWindow {
                     mixMuteButton.checked = muteTarget
                 }
 
-                if (channelRepeater) {
-                    for (var ci = 0; ci < channelRepeater.count; ++ci) {
-                        var channelItem = channelRepeater.itemAt(ci)
-                        channelRepeater.assignItemProperties(ci, channelItem)
-                    }
-                }
             }
 
             onMixStateChanged: syncControls()
@@ -453,54 +500,6 @@ ApplicationWindow {
                         text: mixPage.isStereo ? "Stereo with Mix " + (mixState ? mixState.stereo_pair : mixPage.stereoPartner) : "Mono mix"
                         opacity: 0.7
                         font.pixelSize: 14
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    radius: 12
-                    color: "#1f1f1f"
-                    border.color: "#3a3a3a"
-                    border.width: 1
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 16
-                        spacing: 12
-
-                        Label {
-                            text: "Stereo Links"
-                            font.pixelSize: 16
-                            opacity: 0.85
-                        }
-
-                        Label {
-                            text: "Link neighbouring mixes to create stereo tabs"
-                            font.pixelSize: 12
-                            opacity: 0.6
-                        }
-
-                        Flow {
-                            Layout.fillWidth: true
-                            spacing: 10
-
-                            Repeater {
-                                model: root.stereoPairs
-                                delegate: Button {
-                                    text: modelData.label
-                                    width: 104
-                                    highlighted: root.isPairLinked(modelData.left, modelData.right)
-                                    enabled: root.mixData[modelData.left] && root.mixData[modelData.right]
-                                    onClicked: {
-                                        if (root.isPairLinked(modelData.left, modelData.right)) {
-                                            bridge.setStereoPair(modelData.left, "")
-                                        } else {
-                                            bridge.setStereoPair(modelData.left, modelData.right)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -533,23 +532,8 @@ ApplicationWindow {
                                 height: parent.height
                                 Repeater {
                                     id: channelRepeater
-                                    model: mixState && mixState.channels ? mixState.channels.length : 0
+                                    model: mixState && mixState.channels ? mixState.channels : []
                                     delegate: channelStripComponent
-
-                                    function assignItemProperties(itemIndex, item) {
-                                        if (!item)
-                                            return
-                                        item.mixName = mixPage.mixName
-                                        item.channelIndex = itemIndex
-                                        item.showPan = mixPage.isStereo
-                                        item.channelData = mixState && mixState.channels ? mixState.channels[itemIndex] : null
-                                    }
-
-                                    onItemAdded: assignItemProperties(index, item)
-                                    onModelChanged: {
-                                        for (var i = 0; i < count; ++i)
-                                            assignItemProperties(i, itemAt(i))
-                                    }
                                 }
                             }
 
