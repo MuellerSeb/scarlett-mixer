@@ -16,13 +16,20 @@ from server import build_api
 
 
 async def _run_uvicorn(app, stop_event: asyncio.Event, host: str = "0.0.0.0", port: int = 8088):
-    config = uvicorn.Config(app=app, host=host, port=port, log_level="warning")
+    config = uvicorn.Config(
+        app=app,
+        host=host,
+        port=port,
+        log_level="warning",
+        loop="asyncio",
+        lifespan="off",
+    )
     server = uvicorn.Server(config)
+    server.install_signal_handlers = lambda: None
 
     async def _watch_stop():
         await stop_event.wait()
         server.should_exit = True
-        server.force_exit = True
 
     watcher = asyncio.create_task(_watch_stop())
     try:
@@ -149,7 +156,7 @@ async def _amain(base_dir: Path):
 
     meter_task.cancel()
     await asyncio.gather(meter_task, return_exceptions=True)
-    await server_task
+    await asyncio.gather(server_task, return_exceptions=True)
 
 
 def main_entry():
