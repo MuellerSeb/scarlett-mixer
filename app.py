@@ -110,6 +110,10 @@ async def _amain(base_dir: Path):
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
 
+    qt_app = QGuiApplication.instance()
+    if qt_app is not None:
+        qt_app.aboutToQuit.connect(stop.set)
+
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, stop.set)

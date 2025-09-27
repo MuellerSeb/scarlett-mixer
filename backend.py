@@ -93,7 +93,7 @@ class Backend:
 
     async def _broadcast_state(self):
         now = time.time()
-        if now - self._last_broadcast < 0.03:
+        if now - self._last_broadcast < 0.05:
             return
         self._last_broadcast = now
         payload = {
@@ -252,7 +252,7 @@ class Backend:
                     level_source = ch.volume * (ch_base + ch_wiggle)
                     ch.level = max(0.0, min(1.0, level_source))
             await self._broadcast_state()
-            await asyncio.sleep(0.03)
+            await asyncio.sleep(0.05)
 
     async def run(self):
         await self._broadcast_state()

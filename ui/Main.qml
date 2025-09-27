@@ -25,11 +25,17 @@ ApplicationWindow {
     property string currentMixName: ""
 
     function updateMixState(name, data) {
+        var previous = mixData[name]
         var clone = Object.assign({}, mixData)
         clone[name] = data
         mixData = clone
-        mixTabs = buildMixTabs()
-        ensureCurrentMix()
+
+        var pairingChanged = !previous || previous.stereo_pair !== data.stereo_pair
+        if (pairingChanged) {
+            mixTabs = buildMixTabs()
+        } else {
+            ensureCurrentMix()
+        }
     }
 
     function buildMixTabs() {
@@ -162,6 +168,7 @@ ApplicationWindow {
 
                 Flow {
                     Layout.fillWidth: true
+                    Layout.preferredHeight: childrenRect.height
                     spacing: 10
 
                     Repeater {
@@ -224,16 +231,14 @@ ApplicationWindow {
             property string stereoPartner: ""
             readonly property var mixState: root.mixData[mixName] || null
             readonly property bool isStereo: !!(mixState && mixState.stereo_pair)
+            property real channelStripHeight: 420
 
             Component {
                 id: channelStripComponent
-                ColumnLayout {
+                Item {
                     id: channelStrip
-                    width: 110
-                    implicitWidth: 110
-                    implicitHeight: 420
-                    spacing: 8
-
+                    width: 120
+                    height: mixPage.channelStripHeight
                     property string mixName: mixPage.mixName
                     property int channelIndex: index
                     property var channelData: modelData
@@ -269,85 +274,89 @@ ApplicationWindow {
                     Component.onCompleted: sync()
 
                     Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        anchors.fill: parent
                         radius: 14
                         color: "#1e1e1e"
                         border.color: "#323232"
                         border.width: 1
 
-                        ColumnLayout {
-                            id: channelBody
+                        Column {
                             anchors.fill: parent
                             anchors.margins: 12
                             spacing: 10
 
-                            Label {
+                            Text {
                                 text: channelData ? channelData.name : ""
                                 font.pixelSize: 12
                                 horizontalAlignment: Text.AlignHCenter
-                                Layout.fillWidth: true
+                                width: parent.width
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 2
                             }
 
                             Rectangle {
-                                Layout.fillWidth: true
+                                width: parent.width
                                 height: 1
                                 color: "#2c2c2c"
                                 opacity: 0.6
                             }
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 10
+                            Item {
+                                width: parent.width
+                                height: 220
 
-                                Rectangle {
-                                    Layout.preferredWidth: 18
-                                    Layout.fillHeight: true
-                                    radius: 7
-                                    color: "#101010"
-                                    border.color: "#272727"
-                                    border.width: 1
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.margins: 0
+                                    spacing: 10
 
                                     Rectangle {
-                                        anchors.left: parent.left
-                                        anchors.right: parent.right
+                                        width: 18
+                                        anchors.top: parent.top
                                         anchors.bottom: parent.bottom
-                                        height: parent.height * (channelData ? channelData.level : 0)
-                                        radius: 4
-                                        color: channelData && channelData.level > 0.8 ? "#ff4d4d"
-                                               : channelData && channelData.level > 0.6 ? "#ffaa00"
-                                               : "#55ff55"
-                                    }
-                                }
+                                        radius: 7
+                                        color: "#101010"
+                                        border.color: "#272727"
+                                        border.width: 1
 
-                                Slider {
-                                    id: channelVolumeSlider
-                                    Layout.fillHeight: true
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 36
-                                    orientation: Qt.Vertical
-                                    from: 0
-                                    to: 1
-                                    stepSize: 0.01
-                                    value: 0.75
-                                    property bool syncing: false
-
-                                    onValueChanged: {
-                                        if (syncing) {
-                                            syncing = false
-                                            return
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            height: parent.height * (channelData ? channelData.level : 0)
+                                            radius: 4
+                                            color: channelData && channelData.level > 0.8 ? "#ff4d4d"
+                                                   : channelData && channelData.level > 0.6 ? "#ffaa00"
+                                                   : "#55ff55"
                                         }
-                                        bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                    }
+
+                                    Slider {
+                                        id: channelVolumeSlider
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 42
+                                        orientation: Qt.Vertical
+                                        from: 0
+                                        to: 1
+                                        stepSize: 0.01
+                                        value: 0.75
+                                        property bool syncing: false
+
+                                        onValueChanged: {
+                                            if (syncing) {
+                                                syncing = false
+                                                return
+                                            }
+                                            bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                        }
                                     }
                                 }
                             }
 
-                            ColumnLayout {
+                            Column {
                                 visible: channelStrip.showPan
-                                Layout.fillWidth: true
+                                width: parent.width
                                 spacing: 4
 
                                 Dial {
@@ -356,11 +365,11 @@ ApplicationWindow {
                                     to: 1
                                     stepSize: 0.01
                                     value: 0
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.preferredWidth: 68
-                                    Layout.preferredHeight: 68
                                     visible: channelStrip.showPan
                                     enabled: channelStrip.showPan
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: 68
+                                    height: 68
                                     property bool syncing: false
                                     onValueChanged: {
                                         if (syncing) {
@@ -372,8 +381,8 @@ ApplicationWindow {
                                     }
                                 }
 
-                                Label {
-                                    Layout.fillWidth: true
+                                Text {
+                                    width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     font.pixelSize: 11
                                     opacity: 0.75
@@ -382,12 +391,12 @@ ApplicationWindow {
                             }
 
                             Item {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: channelStrip.showPan ? 4 : 0
+                                width: parent.width
+                                height: channelStrip.showPan ? 4 : 0
                             }
 
-                            RowLayout {
-                                Layout.alignment: Qt.AlignHCenter
+                            Row {
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 spacing: 6
 
                                 Button {
@@ -428,18 +437,18 @@ ApplicationWindow {
                             }
 
                             Rectangle {
-                                Layout.fillWidth: true
+                                width: parent.width
                                 height: 4
                                 radius: 2
                                 color: "#303030"
                             }
 
-                            Label {
-                                text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
+                            Text {
+                                width: parent.width
                                 horizontalAlignment: Text.AlignHCenter
-                                Layout.fillWidth: true
                                 font.pixelSize: 11
                                 opacity: 0.7
+                                text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
                             }
                         }
                     }
@@ -523,6 +532,8 @@ ApplicationWindow {
                             clip: true
                             contentWidth: channelRow.implicitWidth
                             contentHeight: height
+                            onHeightChanged: mixPage.channelStripHeight = Math.max(420, height - 32)
+                            Component.onCompleted: mixPage.channelStripHeight = Math.max(420, height - 32)
 
                             Row {
                                 id: channelRow
