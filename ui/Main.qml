@@ -175,6 +175,35 @@ ApplicationWindow {
             property var channelData: null
             property bool showPan: false
 
+            function sync() {
+                if (!channelData)
+                    return
+                if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
+                    channelVolumeSlider.syncing = true
+                    channelVolumeSlider.value = channelData.volume
+                }
+                var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
+                if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
+                    channelPanDial.syncing = true
+                    channelPanDial.value = panTarget
+                } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
+                    channelPanDial.syncing = true
+                    channelPanDial.value = 0
+                }
+                if (muteButton.checked !== channelData.mute) {
+                    muteButton.syncing = true
+                    muteButton.checked = channelData.mute
+                }
+                if (soloButton.checked !== channelData.solo) {
+                    soloButton.syncing = true
+                    soloButton.checked = channelData.solo
+                }
+            }
+
+            onChannelDataChanged: sync()
+            onShowPanChanged: sync()
+            Component.onCompleted: sync()
+
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -347,39 +376,6 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         font.pixelSize: 11
                         opacity: 0.7
-                    }
-
-                    function sync() {
-                        if (!channelData)
-                            return
-                        if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
-                            channelVolumeSlider.syncing = true
-                            channelVolumeSlider.value = channelData.volume
-                        }
-                        var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
-                        if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
-                            channelPanDial.syncing = true
-                            channelPanDial.value = panTarget
-                        } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
-                            channelPanDial.syncing = true
-                            channelPanDial.value = 0
-                        }
-                        if (muteButton.checked !== channelData.mute) {
-                            muteButton.syncing = true
-                            muteButton.checked = channelData.mute
-                        }
-                        if (soloButton.checked !== channelData.solo) {
-                            soloButton.syncing = true
-                            soloButton.checked = channelData.solo
-                        }
-                    }
-
-                    onChannelDataChanged: sync()
-                    Component.onCompleted: sync()
-
-                    Connections {
-                        target: channelStrip
-                        function onShowPanChanged() { sync() }
                     }
                 }
             }
