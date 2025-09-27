@@ -381,6 +381,15 @@ ApplicationWindow {
                                         live: true
                                         property bool syncing: false
 
+                                        function valueFromPosition(localY) {
+                                            var h = height
+                                            if (h <= 0)
+                                                return from
+                                            var pos = Math.max(0, Math.min(h, localY)) / h
+                                            var ratio = 1 - pos
+                                            return from + ratio * (to - from)
+                                        }
+
                                         onValueChanged: {
                                             if (syncing) {
                                                 syncing = false
@@ -388,6 +397,42 @@ ApplicationWindow {
                                             }
                                             if (channelStrip.channelData)
                                                 bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton
+                                            hoverEnabled: true
+                                            preventStealing: true
+                                            onPressed: {
+                                                if (!channelStrip.channelData) {
+                                                    mouse.accepted = false
+                                                    return
+                                                }
+                                                channelVolumeSlider.forceActiveFocus()
+                                                channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(mouse.y)
+                                                mouse.accepted = true
+                                            }
+                                            onPositionChanged: {
+                                                if ((mouse.buttons & Qt.LeftButton) && channelStrip.channelData)
+                                                    channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(mouse.y)
+                                            }
+                                            onWheel: {
+                                                if (!channelStrip.channelData) {
+                                                    wheel.accepted = false
+                                                    return
+                                                }
+                                                var step = channelVolumeSlider.stepSize > 0
+                                                           ? channelVolumeSlider.stepSize
+                                                           : (channelVolumeSlider.to - channelVolumeSlider.from) / 100
+                                                if (wheel.angleDelta.y !== 0) {
+                                                    var delta = wheel.angleDelta.y > 0 ? step : -step
+                                                    var newValue = channelVolumeSlider.value + delta
+                                                    newValue = Math.max(channelVolumeSlider.from, Math.min(channelVolumeSlider.to, newValue))
+                                                    channelVolumeSlider.value = newValue
+                                                }
+                                                wheel.accepted = true
+                                            }
                                         }
 
                                     }
@@ -428,9 +473,58 @@ ApplicationWindow {
                                             bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
                                     }
 
-                                    TapHandler {
-                                        acceptedButtons: Qt.RightButton
-                                        onTapped: channelPanDial.value = channelPanDial.clampValue(0)
+                                    property real dragStartValue: 0
+                                    property real dragStartY: 0
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        preventStealing: true
+                                        hoverEnabled: true
+                                        onPressed: {
+                                            if (mouse.button === Qt.RightButton) {
+                                                channelPanDial.value = channelPanDial.clampValue(0)
+                                                mouse.accepted = true
+                                                return
+                                            }
+                                            if (!channelStrip.showPan) {
+                                                mouse.accepted = false
+                                                return
+                                            }
+                                            channelPanDial.dragStartValue = channelPanDial.value
+                                            channelPanDial.dragStartY = mouse.y
+                                            channelPanDial.forceActiveFocus()
+                                            mouse.accepted = true
+                                        }
+                                        onPositionChanged: {
+                                            if ((mouse.buttons & Qt.LeftButton) && channelStrip.showPan) {
+                                                var delta = (mouse.y - channelPanDial.dragStartY) / height
+                                                var range = channelPanDial.to - channelPanDial.from
+                                                var newValue = channelPanDial.dragStartValue - delta * range
+                                                channelPanDial.value = channelPanDial.clampValue(newValue)
+                                            }
+                                        }
+                                        onReleased: {
+                                            if (mouse.button === Qt.LeftButton && channelStrip.showPan) {
+                                                var delta = (mouse.y - channelPanDial.dragStartY) / height
+                                                var range = channelPanDial.to - channelPanDial.from
+                                                var newValue = channelPanDial.dragStartValue - delta * range
+                                                channelPanDial.value = channelPanDial.clampValue(newValue)
+                                            }
+                                        }
+                                        onWheel: {
+                                            if (!channelStrip.showPan) {
+                                                wheel.accepted = false
+                                                return
+                                            }
+                                            var step = channelPanDial.stepSize > 0 ? channelPanDial.stepSize : (channelPanDial.to - channelPanDial.from) / 100
+                                            if (wheel.angleDelta.y !== 0) {
+                                                var offset = wheel.angleDelta.y > 0 ? step : -step
+                                                var newValue = channelPanDial.value + offset
+                                                channelPanDial.value = channelPanDial.clampValue(newValue)
+                                            }
+                                            wheel.accepted = true
+                                        }
                                     }
                                 }
 
@@ -766,12 +860,49 @@ ApplicationWindow {
                                         live: true
                                         property bool syncing: false
 
+                                        function valueFromPosition(localY) {
+                                            var h = height
+                                            if (h <= 0)
+                                                return from
+                                            var pos = Math.max(0, Math.min(h, localY)) / h
+                                            var ratio = 1 - pos
+                                            return from + ratio * (to - from)
+                                        }
+
                                         onValueChanged: {
                                             if (syncing) {
                                                 syncing = false
                                                 return
                                             }
                                             bridge.setVolume(mixPage.mixName, value)
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton
+                                            hoverEnabled: true
+                                            preventStealing: true
+                                            onPressed: {
+                                                masterVolumeSlider.forceActiveFocus()
+                                                masterVolumeSlider.value = masterVolumeSlider.valueFromPosition(mouse.y)
+                                                mouse.accepted = true
+                                            }
+                                            onPositionChanged: {
+                                                if (mouse.buttons & Qt.LeftButton)
+                                                    masterVolumeSlider.value = masterVolumeSlider.valueFromPosition(mouse.y)
+                                            }
+                                            onWheel: {
+                                                var step = masterVolumeSlider.stepSize > 0
+                                                           ? masterVolumeSlider.stepSize
+                                                           : (masterVolumeSlider.to - masterVolumeSlider.from) / 100
+                                                if (wheel.angleDelta.y !== 0) {
+                                                    var delta = wheel.angleDelta.y > 0 ? step : -step
+                                                    var newValue = masterVolumeSlider.value + delta
+                                                    newValue = Math.max(masterVolumeSlider.from, Math.min(masterVolumeSlider.to, newValue))
+                                                    masterVolumeSlider.value = newValue
+                                                }
+                                                wheel.accepted = true
+                                            }
                                         }
                                     }
 
@@ -802,6 +933,9 @@ ApplicationWindow {
                                         live: true
                                         property bool syncing: false
 
+                                        property real dragStartValue: 0
+                                        property real dragStartY: 0
+
                                         onValueChanged: {
                                             if (syncing) {
                                                 syncing = false
@@ -809,6 +943,57 @@ ApplicationWindow {
                                             }
                                             if (mixPage.isStereo)
                                                 bridge.setPan(mixPage.mixName, value)
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            preventStealing: true
+                                            hoverEnabled: true
+                                            onPressed: {
+                                                if (mouse.button === Qt.RightButton) {
+                                                    masterPanDial.value = masterPanDial.clampValue(0)
+                                                    mouse.accepted = true
+                                                    return
+                                                }
+                                                if (!mixPage.isStereo) {
+                                                    mouse.accepted = false
+                                                    return
+                                                }
+                                                masterPanDial.dragStartValue = masterPanDial.value
+                                                masterPanDial.dragStartY = mouse.y
+                                                masterPanDial.forceActiveFocus()
+                                                mouse.accepted = true
+                                            }
+                                            onPositionChanged: {
+                                                if ((mouse.buttons & Qt.LeftButton) && mixPage.isStereo) {
+                                                    var delta = (mouse.y - masterPanDial.dragStartY) / height
+                                                    var range = masterPanDial.to - masterPanDial.from
+                                                    var newValue = masterPanDial.dragStartValue - delta * range
+                                                    masterPanDial.value = masterPanDial.clampValue(newValue)
+                                                }
+                                            }
+                                            onReleased: {
+                                                if (mouse.button === Qt.LeftButton && mixPage.isStereo) {
+                                                    var delta = (mouse.y - masterPanDial.dragStartY) / height
+                                                    var range = masterPanDial.to - masterPanDial.from
+                                                    var newValue = masterPanDial.dragStartValue - delta * range
+                                                    masterPanDial.value = masterPanDial.clampValue(newValue)
+                                                }
+                                            }
+                                            onWheel: {
+                                                if (!mixPage.isStereo) {
+                                                    wheel.accepted = false
+                                                    return
+                                                }
+                                                var step = masterPanDial.stepSize > 0 ? masterPanDial.stepSize : (masterPanDial.to - masterPanDial.from) / 100
+                                                if (wheel.angleDelta.y !== 0) {
+                                                    var offset = wheel.angleDelta.y > 0 ? step : -step
+                                                    var newValue = masterPanDial.value + offset
+                                                    masterPanDial.value = masterPanDial.clampValue(newValue)
+                                                }
+                                                wheel.accepted = true
+                                            }
                                         }
                                     }
 
