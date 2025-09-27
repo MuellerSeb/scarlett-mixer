@@ -283,13 +283,13 @@ ApplicationWindow {
                     function sync() {
                         if (!channelData)
                             return
-                        if (!(channelVolumeSlider.userDragging || channelVolumeSlider.pressed) && Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
+                        if (!channelVolumeSlider.pressed && Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
                             channelVolumeSlider.syncing = true
                             channelVolumeSlider.value = channelData.volume
                         }
                         var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
                         if (channelPanDial.visible) {
-                            if (!(channelPanDial.userDragging || channelPanDial.pressed) && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
+                            if (!channelPanDial.pressed && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
                                 channelPanDial.syncing = true
                                 channelPanDial.value = panTarget
                             }
@@ -380,20 +380,6 @@ ApplicationWindow {
                                         height: parent.height
                                         live: true
                                         property bool syncing: false
-                                        property bool userDragging: false
-
-                                        function valueFromPosition(localY) {
-                                            var clamped = Math.max(0, Math.min(availableHeight, localY - topPadding))
-                                            var ratio = availableHeight > 0 ? 1 - (clamped / availableHeight) : 0
-                                            var raw = from + ratio * (to - from)
-                                            if (stepSize > 0)
-                                                raw = Math.round(raw / stepSize) * stepSize
-                                            return Math.max(from, Math.min(to, raw))
-                                        }
-
-                                        function setFromPointer(localY) {
-                                            value = valueFromPosition(localY)
-                                        }
 
                                         onValueChanged: {
                                             if (syncing) {
@@ -404,24 +390,6 @@ ApplicationWindow {
                                                 bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
                                         }
 
-                                        TapHandler {
-                                            id: channelVolumeHandler
-                                            acceptedButtons: Qt.LeftButton
-                                            gesturePolicy: TapHandler.DragThreshold
-                                            grabPermissions: PointerHandler.CanTakeOverFromAnything
-                                            onPressedChanged: {
-                                                channelVolumeSlider.userDragging = pressed
-                                                if (pressed) {
-                                                    channelVolumeSlider.forceActiveFocus()
-                                                    channelVolumeSlider.setFromPointer(point.position.y)
-                                                }
-                                            }
-                                            onPointChanged: {
-                                                if (pressed)
-                                                    channelVolumeSlider.setFromPointer(point.position.y)
-                                            }
-                                            onCanceled: channelVolumeSlider.userDragging = false
-                                        }
                                     }
                                 }
                             }
@@ -443,9 +411,6 @@ ApplicationWindow {
                                     live: true
                                     inputMode: Dial.Vertical
                                     property bool syncing: false
-                                    property bool userDragging: false
-                                    property real dragOriginValue: 0
-                                    property real dragOriginY: 0
 
                                     function clampValue(v) {
                                         var clamped = Math.max(from, Math.min(to, v))
@@ -461,43 +426,6 @@ ApplicationWindow {
                                         }
                                         if (channelStrip.showPan)
                                             bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
-                                    }
-
-                                    TapHandler {
-                                        id: channelPanHandler
-                                        acceptedButtons: Qt.LeftButton
-                                        gesturePolicy: TapHandler.DragThreshold
-                                        grabPermissions: PointerHandler.CanTakeOverFromAnything
-                                        onPressedChanged: {
-                                            channelPanDial.userDragging = pressed
-                                            if (pressed) {
-                                                channelPanDial.forceActiveFocus()
-                                                channelPanDial.dragOriginValue = channelPanDial.value
-                                                channelPanDial.dragOriginY = point.position.y
-                                            }
-                                        }
-                                        onPointChanged: {
-                                            if (!pressed)
-                                                return
-                                            var delta = channelPanDial.dragOriginY - point.position.y
-                                            var range = channelPanDial.to - channelPanDial.from
-                                            var newValue = channelPanDial.dragOriginValue + (delta / 140) * range
-                                            channelPanDial.value = channelPanDial.clampValue(newValue)
-                                        }
-                                        onTapped: {
-                                            var centerX = channelPanDial.width / 2
-                                            var centerY = channelPanDial.height / 2
-                                            var dx = point.position.x - centerX
-                                            var dy = centerY - point.position.y
-                                            var angle = Math.atan2(dy, dx)
-                                            var minAngle = -5 * Math.PI / 6
-                                            var maxAngle = 5 * Math.PI / 6
-                                            var clampedAngle = Math.max(minAngle, Math.min(maxAngle, angle))
-                                            var ratio = (clampedAngle - minAngle) / (maxAngle - minAngle)
-                                            var newValue = channelPanDial.from + ratio * (channelPanDial.to - channelPanDial.from)
-                                            channelPanDial.value = channelPanDial.clampValue(newValue)
-                                        }
-                                        onCanceled: channelPanDial.userDragging = false
                                     }
 
                                     TapHandler {
