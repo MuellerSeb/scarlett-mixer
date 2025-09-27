@@ -24,6 +24,7 @@ ApplicationWindow {
     ]
     property var mixTabs: []
     property string currentMixName: ""
+    property bool shutdownPending: false
 
     function updateMixState(name, data) {
         var previous = mixData[name]
@@ -87,6 +88,17 @@ ApplicationWindow {
     Component.onCompleted: {
         mixTabs = buildMixTabs()
         ensureCurrentMix()
+    }
+
+    onClosing: function(close) {
+        if (!shutdownPending) {
+            close.accepted = false
+            shutdownPending = true
+            if (bridge && bridge.requestShutdown)
+                bridge.requestShutdown()
+        } else {
+            close.accepted = true
+        }
     }
 
     function isPairLinked(left, right) {
@@ -271,12 +283,12 @@ ApplicationWindow {
                     function sync() {
                         if (!channelData)
                             return
-                        if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
+                        if (!channelVolumeSlider.pressed && Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
                             channelVolumeSlider.syncing = true
                             channelVolumeSlider.value = channelData.volume
                         }
                         var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
-                        if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
+                        if (channelPanDial.visible && !channelPanDial.pressed && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
                             channelPanDial.syncing = true
                             channelPanDial.value = panTarget
                         } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
@@ -491,13 +503,13 @@ ApplicationWindow {
                 var state = mixState
 
                 var volumeTarget = state ? state.volume : 0
-                if (Math.abs(masterVolumeSlider.value - volumeTarget) > 0.0005) {
+                if (!masterVolumeSlider.pressed && Math.abs(masterVolumeSlider.value - volumeTarget) > 0.0005) {
                     masterVolumeSlider.syncing = true
                     masterVolumeSlider.value = volumeTarget
                 }
 
                 var targetPan = (state && mixPage.isStereo) ? state.pan : 0
-                if (Math.abs(masterPanDial.value - targetPan) > 0.0005) {
+                if (!masterPanDial.pressed && Math.abs(masterPanDial.value - targetPan) > 0.0005) {
                     masterPanDial.syncing = true
                     masterPanDial.value = targetPan
                 }

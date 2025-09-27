@@ -27,6 +27,7 @@ class MixBridge(QObject):
         super().__init__()
         self._backend = backend
         self._backend.bus.subscribe(self._handle_bus)
+        self._stop_event: asyncio.Event | None = None
 
     @Slot(str, bool)
     def setJoin(self, mix: str, joined: bool):
@@ -79,6 +80,14 @@ class MixBridge(QObject):
     def setChannelPan(self, mix: str, channel_index: int, value: float):
         asyncio.create_task(self._backend.set_channel_pan(mix, channel_index, value))
 
+    def set_stop_event(self, event: asyncio.Event) -> None:
+        self._stop_event = event
+
+    @Slot()
+    def requestShutdown(self):
+        if self._stop_event and not self._stop_event.is_set():
+            self._stop_event.set()
+
     async def _handle_bus(self, msg: dict):
         if msg.get("type") != "snapshot":
             return
@@ -109,6 +118,7 @@ async def _amain(base_dir: Path):
 
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
+    bridge.set_stop_event(stop)
 
     qt_app = QGuiApplication.instance()
     if qt_app is not None:
