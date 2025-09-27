@@ -3,6 +3,7 @@ import QtQml 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Controls.Material 2.15
 import QtQuick.Layouts 1.15
+import "./controls"
 
 ApplicationWindow {
     id: root
@@ -283,17 +284,14 @@ ApplicationWindow {
                     function sync() {
                         if (!channelData)
                             return
-                        if (!channelVolumeSlider.pressed && Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
-                            channelVolumeSlider.syncing = true
-                            channelVolumeSlider.value = channelData.volume
-                        }
+                        if (!channelVolumeFader.pressed)
+                            channelVolumeFader.setFromExternal(channelData.volume)
                         var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
-                        if (channelPanDial.visible && !channelPanDial.pressed && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
-                            channelPanDial.syncing = true
-                            channelPanDial.value = panTarget
-                        } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
-                            channelPanDial.syncing = true
-                            channelPanDial.value = 0
+                        if (channelPanKnob.visible) {
+                            if (!channelPanKnob.pressed)
+                                channelPanKnob.setFromExternal(panTarget)
+                        } else if (Math.abs(channelPanKnob.value) > 0.0005) {
+                            channelPanKnob.setFromExternal(0)
                         }
                         if (muteButton.checked !== channelData.mute) {
                             muteButton.syncing = true
@@ -367,24 +365,18 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Slider {
-                                        id: channelVolumeSlider
-                                        anchors.top: parent.top
-                                        anchors.bottom: parent.bottom
-                                        width: 42
-                                        orientation: Qt.Vertical
+                                    Fader {
+                                        id: channelVolumeFader
+                                        width: 44
+                                        height: parent.height
                                         from: 0
                                         to: 1
                                         stepSize: 0.01
-                                        value: 0.75
-                                        property bool syncing: false
+                                        enabled: !!channelStrip.channelData
 
-                                        onValueChanged: {
-                                            if (syncing) {
-                                                syncing = false
-                                                return
-                                            }
-                                            bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                        onUserValueChanged: {
+                                            if (channelStrip.channelData)
+                                                bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
                                         }
                                     }
                                 }
@@ -395,23 +387,15 @@ ApplicationWindow {
                                 width: parent.width
                                 spacing: 4
 
-                                Dial {
-                                    id: channelPanDial
-                                    from: -1
-                                    to: 1
-                                    stepSize: 0.01
-                                    value: 0
+                                PanKnob {
+                                    id: channelPanKnob
                                     visible: channelStrip.showPan
                                     enabled: channelStrip.showPan
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: 68
-                                    height: 68
-                                    property bool syncing: false
-                                    onValueChanged: {
-                                        if (syncing) {
-                                            syncing = false
-                                            return
-                                        }
+                                    diameter: 68
+                                    stepSize: 0.01
+
+                                    onUserValueChanged: {
                                         if (channelStrip.showPan)
                                             bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
                                     }
@@ -422,7 +406,7 @@ ApplicationWindow {
                                     horizontalAlignment: Text.AlignHCenter
                                     font.pixelSize: 11
                                     opacity: 0.75
-                                    text: channelStrip.showPan && channelData ? channelStrip.formatPan(channelData.pan) : "Pan Center"
+                                    text: channelStrip.showPan ? channelStrip.formatPan(channelPanKnob.value) : "Pan Center"
                                 }
                             }
 
@@ -484,7 +468,7 @@ ApplicationWindow {
                                 horizontalAlignment: Text.AlignHCenter
                                 font.pixelSize: 11
                                 opacity: 0.7
-                                text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
+                                text: channelData ? "Vol " + Math.round(channelVolumeFader.value * 100) / 100 : ""
                             }
                         }
                     }
@@ -503,15 +487,15 @@ ApplicationWindow {
                 var state = mixState
 
                 var volumeTarget = state ? state.volume : 0
-                if (!masterVolumeSlider.pressed && Math.abs(masterVolumeSlider.value - volumeTarget) > 0.0005) {
-                    masterVolumeSlider.syncing = true
-                    masterVolumeSlider.value = volumeTarget
-                }
+                if (!masterVolumeFader.pressed)
+                    masterVolumeFader.setFromExternal(volumeTarget)
 
                 var targetPan = (state && mixPage.isStereo) ? state.pan : 0
-                if (!masterPanDial.pressed && Math.abs(masterPanDial.value - targetPan) > 0.0005) {
-                    masterPanDial.syncing = true
-                    masterPanDial.value = targetPan
+                if (mixPage.isStereo) {
+                    if (!masterPanKnob.pressed)
+                        masterPanKnob.setFromExternal(targetPan)
+                } else if (Math.abs(masterPanKnob.value) > 0.0005) {
+                    masterPanKnob.setFromExternal(0)
                 }
 
                 var muteTarget = state ? state.mute : false
@@ -732,28 +716,20 @@ ApplicationWindow {
                                     Layout.alignment: Qt.AlignHCenter
                                     spacing: 10
 
-                                    Slider {
-                                        id: masterVolumeSlider
-                                        orientation: Qt.Vertical
-                                        from: 0
-                                        to: 1
-                                        stepSize: 0.01
-                                        value: 0.75
+                                    Fader {
+                                        id: masterVolumeFader
                                         Layout.alignment: Qt.AlignHCenter
                                         Layout.fillHeight: true
                                         Layout.preferredWidth: 46
-                                        property bool syncing: false
-                                        onValueChanged: {
-                                            if (syncing) {
-                                                syncing = false
-                                                return
-                                            }
-                                            bridge.setVolume(mixPage.mixName, value)
-                                        }
+                                        from: 0
+                                        to: 1
+                                        stepSize: 0.01
+
+                                        onUserValueChanged: bridge.setVolume(mixPage.mixName, value)
                                     }
 
                                     Label {
-                                        text: mixState ? "Vol " + Math.round(mixState.volume * 100) / 100 : "Vol 0"
+                                        text: mixState ? "Vol " + Math.round(masterVolumeFader.value * 100) / 100 : "Vol 0"
                                         horizontalAlignment: Text.AlignHCenter
                                         Layout.fillWidth: true
                                         font.pixelSize: 12
@@ -767,23 +743,15 @@ ApplicationWindow {
                                     Layout.preferredWidth: 96
                                     spacing: 8
 
-                                    Dial {
-                                        id: masterPanDial
-                                        from: -1
-                                        to: 1
-                                        stepSize: 0.01
-                                        value: 0
+                                    PanKnob {
+                                        id: masterPanKnob
                                         visible: mixPage.isStereo
                                         enabled: mixPage.isStereo
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.preferredWidth: 86
-                                        Layout.preferredHeight: 86
-                                        property bool syncing: false
-                                        onValueChanged: {
-                                            if (syncing) {
-                                                syncing = false
-                                                return
-                                            }
+                                        diameter: 86
+                                        stepSize: 0.01
+
+                                        onUserValueChanged: {
                                             if (mixPage.isStereo)
                                                 bridge.setPan(mixPage.mixName, value)
                                         }
@@ -791,7 +759,7 @@ ApplicationWindow {
 
                                     Label {
                                         visible: mixPage.isStereo
-                                        text: mixPage.isStereo && mixState ? (mixState.pan > 0.01 ? "Pan R " + Math.round(mixState.pan * 100) / 100 : mixState.pan < -0.01 ? "Pan L " + Math.round(Math.abs(mixState.pan) * 100) / 100 : "Pan Center") : "Pan Center"
+                                        text: mixPage.isStereo ? (masterPanKnob.value > 0.01 ? "Pan R " + Math.round(masterPanKnob.value * 100) / 100 : masterPanKnob.value < -0.01 ? "Pan L " + Math.round(Math.abs(masterPanKnob.value) * 100) / 100 : "Pan Center") : "Pan Center"
                                         horizontalAlignment: Text.AlignHCenter
                                         Layout.fillWidth: true
                                         font.pixelSize: 12
