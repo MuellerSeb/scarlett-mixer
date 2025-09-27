@@ -81,9 +81,9 @@ ApplicationWindow {
             width: 88
             spacing: 8
 
-            property string mixName
-            property int channelIndex
-            property var channelData
+            property string mixName: ""
+            property int channelIndex: -1
+            property var channelData: null
 
             Rectangle {
                 Layout.fillWidth: true
@@ -282,6 +282,13 @@ ApplicationWindow {
                     pairSelector.currentIndex = pairIndex
                     Qt.callLater(function() { pairSelector.syncing = false })
                 }
+
+                if (channelRepeater) {
+                    for (var ci = 0; ci < channelRepeater.count; ++ci) {
+                        var channelItem = channelRepeater.itemAt(ci)
+                        channelRepeater.assignItemProperties(ci, channelItem)
+                    }
+                }
             }
 
             onMixStateChanged: syncControls()
@@ -335,11 +342,22 @@ ApplicationWindow {
                                 spacing: 16
                                 anchors.verticalCenter: parent.verticalCenter
                                 Repeater {
+                                    id: channelRepeater
                                     model: mixState && mixState.channels ? mixState.channels.length : 0
-                                    delegate: channelStripComponent {
-                                        mixName: mixPage.mixName
-                                        channelIndex: index
-                                        channelData: mixState.channels[index]
+                                    delegate: channelStripComponent
+
+                                    function assignItemProperties(itemIndex, item) {
+                                        if (!item)
+                                            return
+                                        item.mixName = mixPage.mixName
+                                        item.channelIndex = itemIndex
+                                        item.channelData = mixState && mixState.channels ? mixState.channels[itemIndex] : null
+                                    }
+
+                                    onItemAdded: assignItemProperties(index, item)
+                                    onModelChanged: {
+                                        for (var i = 0; i < count; ++i)
+                                            assignItemProperties(i, itemAt(i))
                                     }
                                 }
                             }
