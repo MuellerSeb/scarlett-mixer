@@ -116,7 +116,7 @@ Item {
                 root.setFromPosition(point.position.y)
             }
         }
-        onPositionChanged: {
+        onPointChanged: {
             if (active)
                 root.setFromPosition(point.position.y)
         }

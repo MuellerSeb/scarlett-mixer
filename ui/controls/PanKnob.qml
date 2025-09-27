@@ -120,7 +120,7 @@ Item {
                 lastY = point.position.y
             }
         }
-        onPositionChanged: {
+        onPointChanged: {
             if (!active)
                 return
             var dy = lastY - point.position.y
