@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import signal
 import sys
 from dataclasses import asdict
@@ -14,10 +15,22 @@ from backend import Backend
 from server import build_api
 
 
-async def _run_uvicorn(app, host: str = "0.0.0.0", port: int = 8088):
+async def _run_uvicorn(app, stop_event: asyncio.Event, host: str = "0.0.0.0", port: int = 8088):
     config = uvicorn.Config(app=app, host=host, port=port, log_level="warning")
     server = uvicorn.Server(config)
-    await server.serve()
+
+    async def _watch_stop():
+        await stop_event.wait()
+        server.should_exit = True
+        server.force_exit = True
+
+    watcher = asyncio.create_task(_watch_stop())
+    try:
+        await server.serve()
+    finally:
+        watcher.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await watcher
 
 
 class MixBridge(QObject):
@@ -113,9 +126,6 @@ async def _amain(base_dir: Path):
 
     bridge.push_initial_snapshot()
 
-    meter_task = asyncio.create_task(backend.meters_task())
-    server_task = asyncio.create_task(_run_uvicorn(api))
-
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
     bridge.set_stop_event(stop)
@@ -131,13 +141,15 @@ async def _amain(base_dir: Path):
             # Signal handlers are not available on some platforms (e.g. Windows)
             pass
 
+    meter_task = asyncio.create_task(backend.meters_task())
+    server_task = asyncio.create_task(_run_uvicorn(api, stop))
+
     await stop.wait()
     await backend.shutdown()
 
-    for task in (meter_task, server_task):
-        task.cancel()
-
-    await asyncio.gather(meter_task, server_task, return_exceptions=True)
+    meter_task.cancel()
+    await asyncio.gather(meter_task, return_exceptions=True)
+    await server_task
 
 
 def main_entry():

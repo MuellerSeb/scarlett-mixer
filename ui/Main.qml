@@ -568,6 +568,9 @@ ApplicationWindow {
                             clip: true
                             contentWidth: channelRow.implicitWidth
                             contentHeight: height
+                            interactive: false
+                            boundsBehavior: Flickable.StopAtBounds
+                            flickableDirection: Flickable.HorizontalFlick
                             onHeightChanged: mixPage.channelStripHeight = Math.max(420, height - 32)
                             Component.onCompleted: mixPage.channelStripHeight = Math.max(420, height - 32)
 
@@ -584,7 +587,10 @@ ApplicationWindow {
                                 }
                             }
 
-                            ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
+                            ScrollBar.horizontal: ScrollBar {
+                                policy: ScrollBar.AsNeeded
+                                interactive: true
+                            }
                         }
                     }
 
