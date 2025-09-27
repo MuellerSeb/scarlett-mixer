@@ -414,7 +414,6 @@ ApplicationWindow {
                                                 if (pressed) {
                                                     channelVolumeSlider.forceActiveFocus()
                                                     channelVolumeSlider.setFromPointer(point.position.y)
-                                                    point.grab(this)
                                                 }
                                             }
                                             onPointChanged: {
@@ -475,7 +474,6 @@ ApplicationWindow {
                                                 channelPanDial.forceActiveFocus()
                                                 channelPanDial.dragOriginValue = channelPanDial.value
                                                 channelPanDial.dragOriginY = point.position.y
-                                                point.grab(this)
                                             }
                                         }
                                         onPointChanged: {
