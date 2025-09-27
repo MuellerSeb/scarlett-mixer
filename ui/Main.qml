@@ -381,6 +381,15 @@ ApplicationWindow {
                                         live: true
                                         property bool syncing: false
 
+                                        function valueFromPosition(localY) {
+                                            var clamped = Math.max(0, Math.min(availableHeight, localY - topPadding))
+                                            var ratio = availableHeight > 0 ? 1 - (clamped / availableHeight) : 0
+                                            var raw = from + ratio * (to - from)
+                                            if (stepSize > 0)
+                                                raw = Math.round(raw / stepSize) * stepSize
+                                            return Math.max(from, Math.min(to, raw))
+                                        }
+
                                         onValueChanged: {
                                             if (syncing) {
                                                 syncing = false
@@ -388,6 +397,20 @@ ApplicationWindow {
                                             }
                                             if (channelStrip.channelData)
                                                 bridge.setChannelVolume(channelStrip.mixName, channelStrip.channelIndex, value)
+                                        }
+
+                                        TapHandler {
+                                            id: channelVolumeHandler
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            gesturePolicy: TapHandler.DragThreshold
+                                            onPressedChanged: {
+                                                if (pressed)
+                                                    channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(point.position.y)
+                                            }
+                                            onPointChanged: {
+                                                if (pressed)
+                                                    channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(point.position.y)
+                                            }
                                         }
                                     }
                                 }
@@ -398,17 +421,18 @@ ApplicationWindow {
                                 width: parent.width
                                 spacing: 4
 
-                                Dial {
-                                    id: channelPanDial
-                                    visible: channelStrip.showPan
-                                    enabled: channelStrip.showPan
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    from: -1
-                                    to: 1
-                                    stepSize: 0.01
-                                    wrap: false
-                                    live: true
-                                    property bool syncing: false
+                                    Dial {
+                                        id: channelPanDial
+                                        visible: channelStrip.showPan
+                                        enabled: channelStrip.showPan
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        from: -1
+                                        to: 1
+                                        stepSize: 0.01
+                                        wrap: false
+                                        live: true
+                                        inputMode: Dial.Vertical
+                                        property bool syncing: false
 
                                     onValueChanged: {
                                         if (syncing) {
