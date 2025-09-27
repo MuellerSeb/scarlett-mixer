@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQml 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Controls.Material 2.15
 import QtQuick.Layouts 1.15
@@ -140,19 +141,25 @@ ApplicationWindow {
         }
 
         Rectangle {
+            id: stereoPanel
             Layout.fillWidth: true
+            implicitHeight: stereoPanelContent.implicitHeight + 32
+            Layout.preferredHeight: implicitHeight
             radius: 12
             color: "#1f1f1f"
             border.color: "#3a3a3a"
             border.width: 1
 
             ColumnLayout {
+                id: stereoPanelContent
                 anchors.fill: parent
                 anchors.margins: 16
-                spacing: 10
+                spacing: 12
 
                 RowLayout {
                     Layout.fillWidth: true
+                    spacing: 8
+
                     Label {
                         text: "Stereo Mix Links"
                         font.pixelSize: 18
@@ -162,20 +169,26 @@ ApplicationWindow {
                     Label {
                         text: "Link neighbouring mixes to create stereo tabs"
                         font.pixelSize: 12
+                        horizontalAlignment: Text.AlignRight
+                        Layout.preferredWidth: Math.min(260, implicitWidth)
                         opacity: 0.65
+                        wrapMode: Text.WordWrap
                     }
                 }
 
                 Flow {
+                    id: stereoFlow
                     Layout.fillWidth: true
-                    Layout.preferredHeight: childrenRect.height
-                    spacing: 10
+                    Layout.minimumHeight: implicitHeight
+                    Layout.preferredHeight: implicitHeight
+                    spacing: 12
 
                     Repeater {
                         model: root.stereoPairs
                         delegate: Button {
                             text: modelData.label
-                            width: 120
+                            implicitWidth: 132
+                            implicitHeight: 40
                             highlighted: root.isPairLinked(modelData.left, modelData.right)
                             enabled: Boolean(root.mixData[modelData.left]) && Boolean(root.mixData[modelData.right])
                             onClicked: {
@@ -191,33 +204,44 @@ ApplicationWindow {
             }
         }
 
-        StackLayout {
-            id: mixStack
+        Loader {
+            id: mixLoader
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: Math.max(0, root.indexOfMix(root.currentMixName))
+            property string mixName: ""
+            property string stereoPartner: ""
+            active: mixName !== ""
+            sourceComponent: mixPageComponent
 
-            Repeater {
-                model: root.mixTabs
-                Loader {
-                    sourceComponent: mixPageComponent
-                    property string mixName: modelData.mixName
-                    property string stereoPartner: modelData.stereoPartner
-                    onLoaded: {
-                        if (item)
-                            item.mixName = mixName
-                        if (item)
-                            item.stereoPartner = stereoPartner
-                    }
-                    onMixNameChanged: {
-                        if (item)
-                            item.mixName = mixName
-                    }
-                    onStereoPartnerChanged: {
-                        if (item)
-                            item.stereoPartner = stereoPartner
-                    }
+            onStatusChanged: {
+                if (status === Loader.Ready && item) {
+                    item.mixName = mixName
+                    item.stereoPartner = stereoPartner
                 }
+            }
+
+            onMixNameChanged: {
+                if (status === Loader.Ready && item)
+                    item.mixName = mixName
+            }
+
+            onStereoPartnerChanged: {
+                if (status === Loader.Ready && item)
+                    item.stereoPartner = stereoPartner
+            }
+
+            Binding {
+                target: mixLoader
+                property: "mixName"
+                value: root.currentMixName
+            }
+
+            Binding {
+                target: mixLoader
+                property: "stereoPartner"
+                value: root.currentMixName && root.mixData[root.currentMixName]
+                       ? root.mixData[root.currentMixName].stereo_pair || ""
+                       : ""
             }
         }
     }
