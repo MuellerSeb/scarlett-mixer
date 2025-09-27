@@ -12,6 +12,7 @@ class Channel:
     volume: float = 0.75
     mute: bool = False
     solo: bool = False
+    pan: float = 0.0
     level: float = 0.0
 
 
@@ -166,6 +167,8 @@ class Backend:
             peer.pan = 0.0
             peer.gain_l = peer.volume
             peer.gain_r = peer.volume
+            for ch in peer.channels:
+                ch.pan = 0.0
 
         if m.stereo_pair and m.stereo_pair != target:
             clear_pair(m.stereo_pair)
@@ -184,10 +187,14 @@ class Backend:
             peer.joined = True
             peer.pan = 0.0
             self._apply_stereo_join(peer)
+            for ch in peer.channels:
+                ch.pan = 0.0
             m.stereo_pair = target
             m.joined = True
             m.pan = 0.0
             self._apply_stereo_join(m)
+            for ch in m.channels:
+                ch.pan = 0.0
         else:
             clear_pair(m.stereo_pair)
             m.stereo_pair = None
@@ -195,6 +202,8 @@ class Backend:
             m.pan = 0.0
             m.gain_l = m.volume
             m.gain_r = m.volume
+            for ch in m.channels:
+                ch.pan = 0.0
 
         await self._broadcast_state()
 
@@ -215,6 +224,13 @@ class Backend:
         m = self.state.mixes[mix]
         if 0 <= channel_index < len(m.channels):
             m.channels[channel_index].solo = solo
+        await self._broadcast_state()
+
+    async def set_channel_pan(self, mix: str, channel_index: int, value: float):
+        m = self.state.mixes[mix]
+        if 0 <= channel_index < len(m.channels):
+            ch = m.channels[channel_index]
+            ch.pan = max(-1.0, min(1.0, value))
         await self._broadcast_state()
 
     # --- Fake meters task ------------------------------------------------

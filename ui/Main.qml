@@ -21,11 +21,65 @@ ApplicationWindow {
         { label: "G / H", left: "G", right: "H" },
         { label: "I / J", left: "I", right: "J" }
     ]
+    property var mixTabs: []
+    property string currentMixName: ""
 
     function updateMixState(name, data) {
         var clone = Object.assign({}, mixData)
         clone[name] = data
         mixData = clone
+        mixTabs = buildMixTabs()
+        ensureCurrentMix()
+    }
+
+    function buildMixTabs() {
+        var result = []
+        for (var i = 0; i < mixNames.length; ++i) {
+            var name = mixNames[i]
+            var data = mixData[name]
+            if (data && data.stereo_pair) {
+                var partner = data.stereo_pair
+                var partnerIndex = mixNames.indexOf(partner)
+                if (partnerIndex >= 0 && partnerIndex < i)
+                    continue
+                result.push({ mixName: name, label: "Mix " + name + " / " + partner, stereoPartner: partner })
+            } else {
+                result.push({ mixName: name, label: "Mix " + name, stereoPartner: "" })
+            }
+        }
+        return result
+    }
+
+    function indexOfMix(name) {
+        for (var i = 0; i < mixTabs.length; ++i) {
+            if (mixTabs[i].mixName === name)
+                return i
+        }
+        return -1
+    }
+
+    function ensureCurrentMix() {
+        var idx = indexOfMix(currentMixName)
+        if (idx < 0) {
+            if (currentMixName && mixData[currentMixName] && mixData[currentMixName].stereo_pair) {
+                var partner = mixData[currentMixName].stereo_pair
+                var partnerIdx = indexOfMix(partner)
+                if (partnerIdx >= 0) {
+                    currentMixName = mixTabs[partnerIdx].mixName
+                    return
+                }
+            }
+            if (mixTabs.length > 0)
+                currentMixName = mixTabs[0].mixName
+        } else if (idx >= mixTabs.length && mixTabs.length > 0) {
+            currentMixName = mixTabs[mixTabs.length - 1].mixName
+        }
+    }
+
+    onMixTabsChanged: ensureCurrentMix()
+    Component.onCompleted: {
+        mixTabs = buildMixTabs()
+        ensureCurrentMix()
     }
 
     function isPairLinked(left, right) {
@@ -58,10 +112,16 @@ ApplicationWindow {
             TabBar {
                 id: mixTabBar
                 Layout.preferredWidth: Math.min(640, implicitWidth)
+                currentIndex: Math.max(0, root.indexOfMix(root.currentMixName))
+                onCurrentIndexChanged: {
+                    if (currentIndex >= 0 && currentIndex < root.mixTabs.length)
+                        root.currentMixName = root.mixTabs[currentIndex].mixName
+                }
+
                 Repeater {
-                    model: root.mixNames
+                    model: root.mixTabs
                     TabButton {
-                        text: "Mix " + modelData
+                        text: modelData.label
                         checkable: true
                         checked: index === mixTabBar.currentIndex
                         onClicked: mixTabBar.currentIndex = index
@@ -74,20 +134,27 @@ ApplicationWindow {
             id: mixStack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: mixTabBar.currentIndex
+            currentIndex: Math.max(0, root.indexOfMix(root.currentMixName))
 
             Repeater {
-                model: root.mixNames
+                model: root.mixTabs
                 Loader {
                     sourceComponent: mixPageComponent
-                    property string mixName: modelData
+                    property string mixName: modelData.mixName
+                    property string stereoPartner: modelData.stereoPartner
                     onLoaded: {
                         if (item)
                             item.mixName = mixName
+                        if (item)
+                            item.stereoPartner = stereoPartner
                     }
                     onMixNameChanged: {
                         if (item)
                             item.mixName = mixName
+                    }
+                    onStereoPartnerChanged: {
+                        if (item)
+                            item.stereoPartner = stereoPartner
                     }
                 }
             }
@@ -98,27 +165,29 @@ ApplicationWindow {
         id: channelStripComponent
         ColumnLayout {
             id: channelStrip
-            width: 88
-            implicitWidth: 88
-            implicitHeight: 340
+            width: 110
+            implicitWidth: 110
+            implicitHeight: 420
             spacing: 8
 
             property string mixName: ""
             property int channelIndex: -1
             property var channelData: null
+            property bool showPan: false
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                radius: 12
-                color: "#1f1f1f"
-                border.color: "#2f2f2f"
+                radius: 14
+                color: "#1e1e1e"
+                border.color: "#323232"
                 border.width: 1
 
                 ColumnLayout {
+                    id: channelBody
                     anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 8
+                    anchors.margins: 12
+                    spacing: 10
 
                     Label {
                         text: channelData ? channelData.name : ""
@@ -126,19 +195,27 @@ ApplicationWindow {
                         horizontalAlignment: Text.AlignHCenter
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
+                        maximumLineCount: 2
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: "#2c2c2c"
+                        opacity: 0.6
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        spacing: 8
+                        spacing: 10
 
                         Rectangle {
-                            Layout.preferredWidth: 16
+                            Layout.preferredWidth: 18
                             Layout.fillHeight: true
-                            radius: 6
+                            radius: 7
                             color: "#101010"
-                            border.color: "#2a2a2a"
+                            border.color: "#272727"
                             border.width: 1
 
                             Rectangle {
@@ -157,6 +234,7 @@ ApplicationWindow {
                             id: channelVolumeSlider
                             Layout.fillHeight: true
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 36
                             orientation: Qt.Vertical
                             from: 0
                             to: 1
@@ -174,16 +252,58 @@ ApplicationWindow {
                         }
                     }
 
+                    ColumnLayout {
+                        visible: channelStrip.showPan
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Dial {
+                            id: channelPanDial
+                            from: -1
+                            to: 1
+                            stepSize: 0.01
+                            value: 0
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: 68
+                            Layout.preferredHeight: 68
+                            visible: channelStrip.showPan
+                            enabled: channelStrip.showPan
+                            property bool syncing: false
+                            onValueChanged: {
+                                if (syncing) {
+                                    syncing = false
+                                    return
+                                }
+                                if (channelStrip.showPan)
+                                    bridge.setChannelPan(channelStrip.mixName, channelStrip.channelIndex, value)
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: 11
+                            opacity: 0.75
+                            text: channelStrip.showPan && channelData ? channelStrip.formatPan(channelData.pan) : "Pan Center"
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: channelStrip.showPan ? 4 : 0
+                    }
+
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
-                        spacing: 8
+                        spacing: 6
 
                         Button {
                             id: muteButton
                             text: "M"
                             checkable: true
                             font.pixelSize: 12
-                            width: 32
+                            width: 42
+                            height: 28
                             checked: false
                             property bool syncing: false
                             onToggled: {
@@ -200,7 +320,8 @@ ApplicationWindow {
                             text: "S"
                             checkable: true
                             font.pixelSize: 12
-                            width: 32
+                            width: 42
+                            height: 28
                             checked: false
                             property bool syncing: false
                             onToggled: {
@@ -212,45 +333,67 @@ ApplicationWindow {
                             }
                         }
                     }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 4
+                        radius: 2
+                        color: "#303030"
+                    }
+
+                    Label {
+                        text: channelData ? "Vol " + Math.round(channelData.volume * 100) / 100 : ""
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.fillWidth: true
+                        font.pixelSize: 11
+                        opacity: 0.7
+                    }
+
+                    function sync() {
+                        if (!channelData)
+                            return
+                        if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
+                            channelVolumeSlider.syncing = true
+                            channelVolumeSlider.value = channelData.volume
+                        }
+                        var panTarget = channelStrip.showPan && channelData ? channelData.pan : 0
+                        if (channelPanDial.visible && Math.abs(channelPanDial.value - panTarget) > 0.0005) {
+                            channelPanDial.syncing = true
+                            channelPanDial.value = panTarget
+                        } else if (!channelStrip.showPan && Math.abs(channelPanDial.value) > 0.0005) {
+                            channelPanDial.syncing = true
+                            channelPanDial.value = 0
+                        }
+                        if (muteButton.checked !== channelData.mute) {
+                            muteButton.syncing = true
+                            muteButton.checked = channelData.mute
+                        }
+                        if (soloButton.checked !== channelData.solo) {
+                            soloButton.syncing = true
+                            soloButton.checked = channelData.solo
+                        }
+                    }
+
+                    onChannelDataChanged: sync()
+                    Component.onCompleted: sync()
+
+                    Connections {
+                        target: channelStrip
+                        function onShowPanChanged() { sync() }
+                    }
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                height: 4
-                radius: 2
-                color: "#303030"
+            function formatPan(value) {
+                if (value > 0.01)
+                    return "Pan R " + Math.round(value * 100) / 100
+                if (value < -0.01)
+                    return "Pan L " + Math.round(Math.abs(value) * 100) / 100
+                return "Pan Center"
             }
-
-            Label {
-                text: channelData ? Math.round(channelData.volume * 100) / 100 : ""
-                horizontalAlignment: Text.AlignHCenter
-                Layout.fillWidth: true
-                font.pixelSize: 11
-                opacity: 0.7
-            }
-
-            function sync() {
-                if (!channelData)
-                    return
-                if (Math.abs(channelVolumeSlider.value - channelData.volume) > 0.0005) {
-                    channelVolumeSlider.syncing = true
-                    channelVolumeSlider.value = channelData.volume
-                }
-                if (muteButton.checked !== channelData.mute) {
-                    muteButton.syncing = true
-                    muteButton.checked = channelData.mute
-                }
-                if (soloButton.checked !== channelData.solo) {
-                    soloButton.syncing = true
-                    soloButton.checked = channelData.solo
-                }
-            }
-
-            onChannelDataChanged: sync()
-            Component.onCompleted: sync()
         }
     }
+
 
     Component {
         id: mixPageComponent
@@ -258,27 +401,29 @@ ApplicationWindow {
             id: mixPage
             anchors.fill: parent
             property string mixName
+            property string stereoPartner: ""
             property var mixState: root.mixData[mixName] || null
             property bool isStereo: !!(mixState && mixState.stereo_pair)
 
             function syncControls() {
-                if (!mixState)
-                    return
+                var state = mixState
 
-                if (Math.abs(masterVolumeDial.value - mixState.volume) > 0.0005) {
-                    masterVolumeDial.syncing = true
-                    masterVolumeDial.value = mixState.volume
+                var volumeTarget = state ? state.volume : 0
+                if (Math.abs(masterVolumeSlider.value - volumeTarget) > 0.0005) {
+                    masterVolumeSlider.syncing = true
+                    masterVolumeSlider.value = volumeTarget
                 }
 
-                var targetPan = mixPage.isStereo ? mixState.pan : 0
-                if (Math.abs(panDial.value - targetPan) > 0.0005) {
-                    panDial.syncing = true
-                    panDial.value = targetPan
+                var targetPan = (state && mixPage.isStereo) ? state.pan : 0
+                if (Math.abs(masterPanDial.value - targetPan) > 0.0005) {
+                    masterPanDial.syncing = true
+                    masterPanDial.value = targetPan
                 }
 
-                if (mixMuteButton.checked !== mixState.mute) {
+                var muteTarget = state ? state.mute : false
+                if (mixMuteButton.checked !== muteTarget) {
                     mixMuteButton.syncing = true
-                    mixMuteButton.checked = mixState.mute
+                    mixMuteButton.checked = muteTarget
                 }
 
                 if (channelRepeater) {
@@ -309,8 +454,8 @@ ApplicationWindow {
                     Item { Layout.fillWidth: true }
 
                     Label {
-                        text: mixPage.isStereo ? "Paired with Mix " + mixState.stereo_pair : "Mono mix"
-                        opacity: 0.6
+                        text: mixPage.isStereo ? "Stereo with Mix " + (mixState ? mixState.stereo_pair : mixPage.stereoPartner) : "Mono mix"
+                        opacity: 0.7
                         font.pixelSize: 14
                     }
                 }
@@ -318,29 +463,36 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     radius: 12
-                    color: "#171717"
-                    border.color: "#2a2a2a"
+                    color: "#1f1f1f"
+                    border.color: "#3a3a3a"
                     border.width: 1
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 8
+                        anchors.margins: 16
+                        spacing: 12
 
                         Label {
                             text: "Stereo Links"
                             font.pixelSize: 16
+                            opacity: 0.85
+                        }
+
+                        Label {
+                            text: "Link neighbouring mixes to create stereo tabs"
+                            font.pixelSize: 12
+                            opacity: 0.6
                         }
 
                         Flow {
-                            width: parent.width
-                            spacing: 8
+                            Layout.fillWidth: true
+                            spacing: 10
 
                             Repeater {
                                 model: root.stereoPairs
                                 delegate: Button {
                                     text: modelData.label
-                                    Layout.preferredWidth: 96
+                                    width: 104
                                     highlighted: root.isPairLinked(modelData.left, modelData.right)
                                     enabled: root.mixData[modelData.left] && root.mixData[modelData.right]
                                     onClicked: {
@@ -393,6 +545,7 @@ ApplicationWindow {
                                             return
                                         item.mixName = mixPage.mixName
                                         item.channelIndex = itemIndex
+                                        item.showPan = mixPage.isStereo
                                         item.channelData = mixState && mixState.channels ? mixState.channels[itemIndex] : null
                                     }
 
@@ -429,11 +582,11 @@ ApplicationWindow {
                             }
 
                             Label {
-                                text: mixPage.isStereo ? "Linked with Mix " + mixState.stereo_pair : "Mono Output"
+                                text: mixPage.isStereo ? "Linked with Mix " + (mixState ? mixState.stereo_pair : mixPage.stereoPartner) : "Mono Output"
                                 horizontalAlignment: Text.AlignHCenter
                                 Layout.fillWidth: true
                                 font.pixelSize: 13
-                                opacity: 0.65
+                                opacity: 0.7
                             }
 
                             RowLayout {
@@ -542,18 +695,20 @@ ApplicationWindow {
 
                                 ColumnLayout {
                                     Layout.fillHeight: true
-                                    Layout.fillWidth: true
-                                    spacing: 12
+                                    Layout.preferredWidth: 72
+                                    Layout.alignment: Qt.AlignHCenter
+                                    spacing: 10
 
-                                    Dial {
-                                        id: masterVolumeDial
+                                    Slider {
+                                        id: masterVolumeSlider
+                                        orientation: Qt.Vertical
                                         from: 0
                                         to: 1
                                         stepSize: 0.01
                                         value: 0.75
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.preferredWidth: 110
-                                        Layout.preferredHeight: 110
+                                        Layout.fillHeight: true
+                                        Layout.preferredWidth: 46
                                         property bool syncing: false
                                         onValueChanged: {
                                             if (syncing) {
@@ -565,15 +720,22 @@ ApplicationWindow {
                                     }
 
                                     Label {
-                                        text: mixState ? "Vol " + Math.round(mixState.volume * 100) / 100 : ""
+                                        text: mixState ? "Vol " + Math.round(mixState.volume * 100) / 100 : "Vol 0"
                                         horizontalAlignment: Text.AlignHCenter
                                         Layout.fillWidth: true
                                         font.pixelSize: 12
-                                        opacity: 0.7
+                                        opacity: 0.75
                                     }
+                                }
+
+                                ColumnLayout {
+                                    visible: mixPage.isStereo
+                                    Layout.fillHeight: true
+                                    Layout.preferredWidth: 96
+                                    spacing: 8
 
                                     Dial {
-                                        id: panDial
+                                        id: masterPanDial
                                         from: -1
                                         to: 1
                                         stepSize: 0.01
@@ -581,8 +743,8 @@ ApplicationWindow {
                                         visible: mixPage.isStereo
                                         enabled: mixPage.isStereo
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.preferredWidth: 100
-                                        Layout.preferredHeight: 100
+                                        Layout.preferredWidth: 86
+                                        Layout.preferredHeight: 86
                                         property bool syncing: false
                                         onValueChanged: {
                                             if (syncing) {
@@ -596,27 +758,27 @@ ApplicationWindow {
 
                                     Label {
                                         visible: mixPage.isStereo
-                                        text: "Pan"
+                                        text: mixPage.isStereo && mixState ? (mixState.pan > 0.01 ? "Pan R " + Math.round(mixState.pan * 100) / 100 : mixState.pan < -0.01 ? "Pan L " + Math.round(Math.abs(mixState.pan) * 100) / 100 : "Pan Center") : "Pan Center"
                                         horizontalAlignment: Text.AlignHCenter
                                         Layout.fillWidth: true
                                         font.pixelSize: 12
-                                        opacity: 0.7
+                                        opacity: 0.75
                                     }
+                                }
+                            }
 
-                                    Button {
-                                        id: mixMuteButton
-                                        text: checked ? "Muted" : "Mute"
-                                        checkable: true
-                                        Layout.fillWidth: true
-                                        property bool syncing: false
-                                        onToggled: {
-                                            if (syncing) {
-                                                syncing = false
-                                                return
-                                            }
-                                            bridge.setMixMute(mixPage.mixName, checked)
-                                        }
+                            Button {
+                                id: mixMuteButton
+                                text: checked ? "Muted" : "Mute"
+                                checkable: true
+                                Layout.fillWidth: true
+                                property bool syncing: false
+                                onToggled: {
+                                    if (syncing) {
+                                        syncing = false
+                                        return
                                     }
+                                    bridge.setMixMute(mixPage.mixName, checked)
                                 }
                             }
                         }

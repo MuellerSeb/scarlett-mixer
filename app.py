@@ -75,6 +75,10 @@ class MixBridge(QObject):
     def setChannelSolo(self, mix: str, channel_index: int, solo: bool):
         asyncio.create_task(self._backend.set_channel_solo(mix, channel_index, solo))
 
+    @Slot(str, int, float)
+    def setChannelPan(self, mix: str, channel_index: int, value: float):
+        asyncio.create_task(self._backend.set_channel_pan(mix, channel_index, value))
+
     async def _handle_bus(self, msg: dict):
         if msg.get("type") != "snapshot":
             return
