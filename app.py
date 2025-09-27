@@ -54,6 +54,31 @@ class MixBridge(QObject):
     def setRight(self, mix: str, value: float):
         asyncio.create_task(self._backend.set_lr(mix, None, value))
 
+    @Slot(str, bool)
+    def setMixMute(self, mix: str, muted: bool):
+        asyncio.create_task(self._backend.set_mix_mute(mix, muted))
+
+    @Slot(str, str)
+    def setStereoPair(self, mix: str, partner: str):
+        target = partner if partner else None
+        asyncio.create_task(self._backend.set_stereo_pair(mix, target))
+
+    @Slot(str, int, float)
+    def setChannelVolume(self, mix: str, channel_index: int, value: float):
+        asyncio.create_task(self._backend.set_channel_volume(mix, channel_index, value))
+
+    @Slot(str, int, bool)
+    def setChannelMute(self, mix: str, channel_index: int, muted: bool):
+        asyncio.create_task(self._backend.set_channel_mute(mix, channel_index, muted))
+
+    @Slot(str, int, bool)
+    def setChannelSolo(self, mix: str, channel_index: int, solo: bool):
+        asyncio.create_task(self._backend.set_channel_solo(mix, channel_index, solo))
+
+    @Slot(str, int, float)
+    def setChannelPan(self, mix: str, channel_index: int, value: float):
+        asyncio.create_task(self._backend.set_channel_pan(mix, channel_index, value))
+
     async def _handle_bus(self, msg: dict):
         if msg.get("type") != "snapshot":
             return
