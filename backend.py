@@ -18,7 +18,7 @@ class Channel:
 @dataclass
 class Mix:
     name: str
-    joined: bool = True
+    joined: bool = False
     volume: float = 0.75
     pan: float = 0.0
     gain_l: float = 0.75
@@ -74,15 +74,15 @@ class Backend:
             Channel(index=i, name=f"Input {i + 1}", volume=0.75 - (i % 3) * 0.05)
             for i in range(20)
         ]
+        base_volume = 0.75 - (offset % 4) * 0.05
         mix = Mix(
             name=name,
-            volume=0.75 - (offset % 4) * 0.05,
+            volume=base_volume,
             pan=0.0,
-            gain_l=0.75,
-            gain_r=0.75,
+            gain_l=base_volume,
+            gain_r=base_volume,
             channels=channels,
         )
-        self._apply_stereo_join(mix)
         return mix
 
     def _apply_stereo_join(self, mix: Mix):
@@ -104,23 +104,36 @@ class Backend:
     # --- Public mutators -------------------------------------------------
     async def set_join(self, mix: str, joined: bool):
         m = self.state.mixes[mix]
-        m.joined = joined
-        if joined:
-            self._apply_stereo_join(m)
+        if not m.stereo_pair:
+            m.joined = False
+            m.pan = 0.0
+            m.gain_l = m.volume
+            m.gain_r = m.volume
+        else:
+            m.joined = joined
+            if joined:
+                self._apply_stereo_join(m)
         await self._broadcast_state()
 
     async def set_volume(self, mix: str, value: float):
         m = self.state.mixes[mix]
         m.volume = max(0.0, min(1.0, value))
-        if m.joined:
+        if m.stereo_pair:
+            m.joined = True
             self._apply_stereo_join(m)
+        else:
+            m.joined = False
+            m.gain_l = m.volume
+            m.gain_r = m.volume
         await self._broadcast_state()
 
     async def set_pan(self, mix: str, value: float):
         m = self.state.mixes[mix]
-        m.pan = max(-1.0, min(1.0, value))
-        if m.joined:
+        if m.stereo_pair:
+            m.pan = max(-1.0, min(1.0, value))
             self._apply_stereo_join(m)
+        else:
+            m.pan = 0.0
         await self._broadcast_state()
 
     async def set_lr(self, mix: str, l: Optional[float] = None, r: Optional[float] = None):
@@ -145,8 +158,14 @@ class Backend:
             if not peer_name:
                 return
             peer = self.state.mixes.get(peer_name)
-            if peer and peer.stereo_pair == mix:
+            if not peer:
+                return
+            if peer.stereo_pair == mix:
                 peer.stereo_pair = None
+            peer.joined = False
+            peer.pan = 0.0
+            peer.gain_l = peer.volume
+            peer.gain_r = peer.volume
 
         if m.stereo_pair and m.stereo_pair != target:
             clear_pair(m.stereo_pair)
@@ -157,11 +176,25 @@ class Backend:
                 other = self.state.mixes.get(peer.stereo_pair)
                 if other and other.stereo_pair == target:
                     other.stereo_pair = None
+                    other.joined = False
+                    other.pan = 0.0
+                    other.gain_l = other.volume
+                    other.gain_r = other.volume
             peer.stereo_pair = mix
+            peer.joined = True
+            peer.pan = 0.0
+            self._apply_stereo_join(peer)
             m.stereo_pair = target
+            m.joined = True
+            m.pan = 0.0
+            self._apply_stereo_join(m)
         else:
             clear_pair(m.stereo_pair)
             m.stereo_pair = None
+            m.joined = False
+            m.pan = 0.0
+            m.gain_l = m.volume
+            m.gain_r = m.volume
 
         await self._broadcast_state()
 
