@@ -404,7 +404,7 @@ ApplicationWindow {
                                             acceptedButtons: Qt.LeftButton
                                             hoverEnabled: true
                                             preventStealing: true
-                                            onPressed: {
+                                            onPressed: function(mouse) {
                                                 if (!channelStrip.channelData) {
                                                     mouse.accepted = false
                                                     return
@@ -413,11 +413,11 @@ ApplicationWindow {
                                                 channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(mouse.y)
                                                 mouse.accepted = true
                                             }
-                                            onPositionChanged: {
+                                            onPositionChanged: function(mouse) {
                                                 if ((mouse.buttons & Qt.LeftButton) && channelStrip.channelData)
                                                     channelVolumeSlider.value = channelVolumeSlider.valueFromPosition(mouse.y)
                                             }
-                                            onWheel: {
+                                            onWheel: function(wheel) {
                                                 if (!channelStrip.channelData) {
                                                     wheel.accepted = false
                                                     return
@@ -481,7 +481,7 @@ ApplicationWindow {
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         preventStealing: true
                                         hoverEnabled: true
-                                        onPressed: {
+                                        onPressed: function(mouse) {
                                             if (mouse.button === Qt.RightButton) {
                                                 channelPanDial.value = channelPanDial.clampValue(0)
                                                 mouse.accepted = true
@@ -496,7 +496,7 @@ ApplicationWindow {
                                             channelPanDial.forceActiveFocus()
                                             mouse.accepted = true
                                         }
-                                        onPositionChanged: {
+                                        onPositionChanged: function(mouse) {
                                             if ((mouse.buttons & Qt.LeftButton) && channelStrip.showPan) {
                                                 var delta = (mouse.y - channelPanDial.dragStartY) / height
                                                 var range = channelPanDial.to - channelPanDial.from
@@ -504,7 +504,7 @@ ApplicationWindow {
                                                 channelPanDial.value = channelPanDial.clampValue(newValue)
                                             }
                                         }
-                                        onReleased: {
+                                        onReleased: function(mouse) {
                                             if (mouse.button === Qt.LeftButton && channelStrip.showPan) {
                                                 var delta = (mouse.y - channelPanDial.dragStartY) / height
                                                 var range = channelPanDial.to - channelPanDial.from
@@ -512,7 +512,7 @@ ApplicationWindow {
                                                 channelPanDial.value = channelPanDial.clampValue(newValue)
                                             }
                                         }
-                                        onWheel: {
+                                        onWheel: function(wheel) {
                                             if (!channelStrip.showPan) {
                                                 wheel.accepted = false
                                                 return
@@ -882,16 +882,16 @@ ApplicationWindow {
                                             acceptedButtons: Qt.LeftButton
                                             hoverEnabled: true
                                             preventStealing: true
-                                            onPressed: {
+                                            onPressed: function(mouse) {
                                                 masterVolumeSlider.forceActiveFocus()
                                                 masterVolumeSlider.value = masterVolumeSlider.valueFromPosition(mouse.y)
                                                 mouse.accepted = true
                                             }
-                                            onPositionChanged: {
+                                            onPositionChanged: function(mouse) {
                                                 if (mouse.buttons & Qt.LeftButton)
                                                     masterVolumeSlider.value = masterVolumeSlider.valueFromPosition(mouse.y)
                                             }
-                                            onWheel: {
+                                            onWheel: function(wheel) {
                                                 var step = masterVolumeSlider.stepSize > 0
                                                            ? masterVolumeSlider.stepSize
                                                            : (masterVolumeSlider.to - masterVolumeSlider.from) / 100
@@ -950,7 +950,7 @@ ApplicationWindow {
                                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                                             preventStealing: true
                                             hoverEnabled: true
-                                            onPressed: {
+                                            onPressed: function(mouse) {
                                                 if (mouse.button === Qt.RightButton) {
                                                     masterPanDial.value = masterPanDial.clampValue(0)
                                                     mouse.accepted = true
@@ -965,7 +965,7 @@ ApplicationWindow {
                                                 masterPanDial.forceActiveFocus()
                                                 mouse.accepted = true
                                             }
-                                            onPositionChanged: {
+                                            onPositionChanged: function(mouse) {
                                                 if ((mouse.buttons & Qt.LeftButton) && mixPage.isStereo) {
                                                     var delta = (mouse.y - masterPanDial.dragStartY) / height
                                                     var range = masterPanDial.to - masterPanDial.from
@@ -973,7 +973,7 @@ ApplicationWindow {
                                                     masterPanDial.value = masterPanDial.clampValue(newValue)
                                                 }
                                             }
-                                            onReleased: {
+                                            onReleased: function(mouse) {
                                                 if (mouse.button === Qt.LeftButton && mixPage.isStereo) {
                                                     var delta = (mouse.y - masterPanDial.dragStartY) / height
                                                     var range = masterPanDial.to - masterPanDial.from
@@ -981,7 +981,7 @@ ApplicationWindow {
                                                     masterPanDial.value = masterPanDial.clampValue(newValue)
                                                 }
                                             }
-                                            onWheel: {
+                                            onWheel: function(wheel) {
                                                 if (!mixPage.isStereo) {
                                                     wheel.accepted = false
                                                     return
