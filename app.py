@@ -1,175 +1,29 @@
-import asyncio
-import contextlib
-import signal
-import sys
-from dataclasses import asdict
-from pathlib import Path
+from __future__ import annotations
 
-from PySide6.QtCore import QObject, Signal, Slot
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
-import qasync
-import uvicorn
+from nicegui import app as nice_app, ui
 
 from backend import Backend
-from server import build_api
+from mixer_ui import MixerApplication
 
 
-async def _run_uvicorn(app, stop_event: asyncio.Event, host: str = "0.0.0.0", port: int = 8088):
-    config = uvicorn.Config(
-        app=app,
-        host=host,
-        port=port,
-        log_level="warning",
-        loop="asyncio",
-        lifespan="off",
-    )
-    server = uvicorn.Server(config)
-    server.install_signal_handlers = lambda: None
-
-    async def _watch_stop():
-        await stop_event.wait()
-        server.should_exit = True
-
-    watcher = asyncio.create_task(_watch_stop())
-    try:
-        await server.serve()
-    finally:
-        watcher.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await watcher
+backend = Backend()
+mixer_app = MixerApplication(backend)
 
 
-class MixBridge(QObject):
-    mixSnapshot = Signal(str, dict)
-
-    def __init__(self, backend: Backend):
-        super().__init__()
-        self._backend = backend
-        self._backend.bus.subscribe(self._handle_bus)
-        self._stop_event: asyncio.Event | None = None
-
-    @Slot(str, bool)
-    def setJoin(self, mix: str, joined: bool):
-        asyncio.create_task(self._backend.set_join(mix, joined))
-
-    @Slot(str, float)
-    def setVolume(self, mix: str, value: float):
-        asyncio.create_task(self._backend.set_volume(mix, value))
-
-    @Slot(str, float)
-    def setPan(self, mix: str, value: float):
-        asyncio.create_task(self._backend.set_pan(mix, value))
-
-    @Slot(str, float, float)
-    def setLR(self, mix: str, left: float, right: float):
-        l = None if left < 0 else left
-        r = None if right < 0 else right
-        asyncio.create_task(self._backend.set_lr(mix, l, r))
-
-    @Slot(str, float)
-    def setLeft(self, mix: str, value: float):
-        asyncio.create_task(self._backend.set_lr(mix, value, None))
-
-    @Slot(str, float)
-    def setRight(self, mix: str, value: float):
-        asyncio.create_task(self._backend.set_lr(mix, None, value))
-
-    @Slot(str, bool)
-    def setMixMute(self, mix: str, muted: bool):
-        asyncio.create_task(self._backend.set_mix_mute(mix, muted))
-
-    @Slot(str, str)
-    def setStereoPair(self, mix: str, partner: str):
-        target = partner if partner else None
-        asyncio.create_task(self._backend.set_stereo_pair(mix, target))
-
-    @Slot(str, int, float)
-    def setChannelVolume(self, mix: str, channel_index: int, value: float):
-        asyncio.create_task(self._backend.set_channel_volume(mix, channel_index, value))
-
-    @Slot(str, int, bool)
-    def setChannelMute(self, mix: str, channel_index: int, muted: bool):
-        asyncio.create_task(self._backend.set_channel_mute(mix, channel_index, muted))
-
-    @Slot(str, int, bool)
-    def setChannelSolo(self, mix: str, channel_index: int, solo: bool):
-        asyncio.create_task(self._backend.set_channel_solo(mix, channel_index, solo))
-
-    @Slot(str, int, float)
-    def setChannelPan(self, mix: str, channel_index: int, value: float):
-        asyncio.create_task(self._backend.set_channel_pan(mix, channel_index, value))
-
-    def set_stop_event(self, event: asyncio.Event) -> None:
-        self._stop_event = event
-
-    @Slot()
-    def requestShutdown(self):
-        if self._stop_event and not self._stop_event.is_set():
-            self._stop_event.set()
-
-    async def _handle_bus(self, msg: dict):
-        if msg.get("type") != "snapshot":
-            return
-        for name, payload in msg["mixes"].items():
-            self.mixSnapshot.emit(name, payload)
-
-    def push_initial_snapshot(self):
-        for name, mix in self._backend.state.mixes.items():
-            self.mixSnapshot.emit(name, asdict(mix))
+@nice_app.on_startup
+async def _startup() -> None:
+    await mixer_app.start()
 
 
-async def _amain(base_dir: Path):
-    engine = QQmlApplicationEngine()
-
-    backend = Backend()
-    api = build_api(backend, base_dir / "web")
-
-    bridge = MixBridge(backend)
-    engine.rootContext().setContextProperty("bridge", bridge)
-    engine.load(str(base_dir / "ui" / "Main.qml"))
-    if not engine.rootObjects():
-        raise RuntimeError("Failed to load QML UI")
-
-    bridge.push_initial_snapshot()
-
-    loop = asyncio.get_running_loop()
-    stop = asyncio.Event()
-    bridge.set_stop_event(stop)
-
-    qt_app = QGuiApplication.instance()
-    if qt_app is not None:
-        qt_app.aboutToQuit.connect(stop.set)
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop.set)
-        except NotImplementedError:
-            # Signal handlers are not available on some platforms (e.g. Windows)
-            pass
-
-    meter_task = asyncio.create_task(backend.meters_task())
-    server_task = asyncio.create_task(_run_uvicorn(api, stop))
-
-    await stop.wait()
-    await backend.shutdown()
-
-    meter_task.cancel()
-    await asyncio.gather(meter_task, return_exceptions=True)
-    await asyncio.gather(server_task, return_exceptions=True)
+@nice_app.on_shutdown
+async def _shutdown() -> None:
+    await mixer_app.stop()
 
 
-def main_entry():
-    base_dir = Path(__file__).resolve().parent
-    qt_app = QGuiApplication(sys.argv)
-    loop = qasync.QEventLoop(qt_app)
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(_amain(base_dir))
-    finally:
-        loop.close()
-        qt_app.quit()
+def main(host: str = "0.0.0.0", port: int = 8080, reload: bool = False) -> None:
+    """Entry point for running the NiceGUI-based Scarlett Mixer."""
+    ui.run(host=host, port=port, reload=reload, title="Scarlett Mixer")
 
 
 if __name__ == "__main__":
-    main_entry()
+    main()
