@@ -123,7 +123,9 @@ class MasterStrip:
                 self.pan_knob.on_change(self._handle_pan_change)
             self.pan_container.set_visibility(False)
             self.join_switch = ui.switch("Link Gains")
-            self.join_switch.on_change(self._handle_join_change)
+            self.join_switch.on(
+                "change", lambda e: asyncio.create_task(self._handle_join_change(e))
+            )
             self.mute_checkbox = ui.checkbox("Mute Mix")
             self.mute_checkbox.on_change(self._handle_mute_change)
 
@@ -227,7 +229,8 @@ class StereoLinkPanel:
             with self.switch_row:
                 for left, right in self.pairs:
                     switch = ui.switch(f"{left} / {right}")
-                    switch.on_change(
+                    switch.on(
+                        "change",
                         lambda e, l=left, r=right: asyncio.create_task(
                             self._handle_toggle(l, r, e.value)
                         )
