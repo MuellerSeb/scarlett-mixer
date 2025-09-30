@@ -2,7 +2,7 @@ import asyncio
 import math
 import time
 from dataclasses import dataclass, asdict, field
-from typing import Any, Callable, Coroutine, Dict, Optional, Set
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Mix:
     level_l: float = 0.0
     level_r: float = 0.0
     stereo_pair: Optional[str] = None
-    channels: list[Channel] = field(default_factory=list)
+    channels: List[Channel] = field(default_factory=list)
 
 
 @dataclass
