@@ -31,7 +31,10 @@ class ChannelStrip:
             self.volume_slider = ui.slider(min=0.0, max=1.0, step=0.01).props(
                 "vertical color=primary"
             ).classes("h-40")
-            self.volume_slider.on_change(self._handle_volume_change)
+            self.volume_slider.on(
+                "change",
+                lambda e: asyncio.create_task(self._handle_volume_change(e)),
+            )
             self.pan_section = ui.column().classes("items-center gap-1")
             with self.pan_section:
                 ui.label("Pan").classes("text-xs uppercase tracking-wide")
@@ -41,12 +44,21 @@ class ChannelStrip:
                     value=0.0,
                     step=0.01,
                 ).props("size=80 color=secondary show-value")
-                self.pan_knob.on_change(self._handle_pan_change)
+                self.pan_knob.on(
+                    "change",
+                    lambda e: asyncio.create_task(self._handle_pan_change(e)),
+                )
             self.pan_section.set_visibility(False)
             self.mute_checkbox = ui.checkbox("Mute")
-            self.mute_checkbox.on_change(self._handle_mute_change)
+            self.mute_checkbox.on(
+                "change",
+                lambda e: asyncio.create_task(self._handle_mute_change(e)),
+            )
             self.solo_checkbox = ui.checkbox("Solo")
-            self.solo_checkbox.on_change(self._handle_solo_change)
+            self.solo_checkbox.on(
+                "change",
+                lambda e: asyncio.create_task(self._handle_solo_change(e)),
+            )
 
     async def _handle_volume_change(self, event):
         if self._syncing:
@@ -110,7 +122,10 @@ class MasterStrip:
             self.volume_slider = ui.slider(min=0.0, max=1.0, step=0.01).props(
                 "vertical color=primary"
             ).classes("h-48")
-            self.volume_slider.on_change(self._handle_volume_change)
+            self.volume_slider.on(
+                "change",
+                lambda e: asyncio.create_task(self._handle_volume_change(e)),
+            )
             self.pan_container = ui.column().classes("items-center gap-2")
             with self.pan_container:
                 ui.label("Master Pan").classes("text-sm uppercase tracking-wide")
@@ -120,14 +135,20 @@ class MasterStrip:
                     value=0.0,
                     step=0.01,
                 ).props("size=90 color=secondary show-value")
-                self.pan_knob.on_change(self._handle_pan_change)
+                self.pan_knob.on(
+                    "change",
+                    lambda e: asyncio.create_task(self._handle_pan_change(e)),
+                )
             self.pan_container.set_visibility(False)
             self.join_switch = ui.switch("Link Gains")
             self.join_switch.on(
                 "change", lambda e: asyncio.create_task(self._handle_join_change(e))
             )
             self.mute_checkbox = ui.checkbox("Mute Mix")
-            self.mute_checkbox.on_change(self._handle_mute_change)
+            self.mute_checkbox.on(
+                "change",
+                lambda e: asyncio.create_task(self._handle_mute_change(e)),
+            )
 
     async def _handle_volume_change(self, event):
         if self._syncing:
@@ -191,7 +212,7 @@ class MixView:
         with self.container:
             self.master.container
             self.scroll = ui.scroll_area().classes(
-                "flex-1 h-[420px] bg-slate-900/30 rounded-xl"
+                "flex-1 h-[520px] bg-slate-900/30 rounded-xl"
             )
             with self.scroll:
                 self.channel_row = ui.row().classes(
